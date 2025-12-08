@@ -1,0 +1,10 @@
+framework module CrashReporter {
+    umbrella header "CrashReporter.h"
+    export *
+    module * { export * }
+}
+
+module CrashReporter.Swift {
+    header "CrashReporter-Swift.h"
+    requires objc
+}

@@ -1,0 +1,121 @@
+{
+  "" : {
+    "const-values" : "/Users/souleimagara/Desktop/CrashReporter/build/Build/Intermediates.noindex/CrashReporter.build/Release-iphoneos/CrashReporter.build/Objects-normal/arm64/CrashReporter-primary.swiftconstvalues",
+    "dependencies" : "/Users/souleimagara/Desktop/CrashReporter/build/Build/Intermediates.noindex/CrashReporter.build/Release-iphoneos/CrashReporter.build/Objects-normal/arm64/CrashReporter-primary.d",
+    "diagnostics" : "/Users/souleimagara/Desktop/CrashReporter/build/Build/Intermediates.noindex/CrashReporter.build/Release-iphoneos/CrashReporter.build/Objects-normal/arm64/CrashReporter-primary.dia",
+    "emit-module-dependencies" : "/Users/souleimagara/Desktop/CrashReporter/build/Build/Intermediates.noindex/CrashReporter.build/Release-iphoneos/CrashReporter.build/Objects-normal/arm64/CrashReporter-primary-emit-module.d",
+    "emit-module-diagnostics" : "/Users/souleimagara/Desktop/CrashReporter/build/Build/Intermediates.noindex/CrashReporter.build/Release-iphoneos/CrashReporter.build/Objects-normal/arm64/CrashReporter-primary-emit-module.dia",
+    "pch" : "/Users/souleimagara/Desktop/CrashReporter/build/Build/Intermediates.noindex/CrashReporter.build/Release-iphoneos/CrashReporter.build/Objects-normal/arm64/CrashReporter-primary-Bridging-header.pch",
+    "swift-dependencies" : "/Users/souleimagara/Desktop/CrashReporter/build/Build/Intermediates.noindex/CrashReporter.build/Release-iphoneos/CrashReporter.build/Objects-normal/arm64/CrashReporter-primary.swiftdeps"
+  },
+  "/Users/souleimagara/Desktop/CrashReporter/CrashReporter/AnalyticsEventManager.swift" : {
+    "index-unit-output-path" : "/CrashReporter.build/Release-iphoneos/CrashReporter.build/Objects-normal/arm64/AnalyticsEventManager.o",
+    "llvm-bc" : "/Users/souleimagara/Desktop/CrashReporter/build/Build/Intermediates.noindex/CrashReporter.build/Release-iphoneos/CrashReporter.build/Objects-normal/arm64/AnalyticsEventManager.bc",
+    "object" : "/Users/souleimagara/Desktop/CrashReporter/build/Build/Intermediates.noindex/CrashReporter.build/Release-iphoneos/CrashReporter.build/Objects-normal/arm64/AnalyticsEventManager.o"
+  },
+  "/Users/souleimagara/Desktop/CrashReporter/CrashReporter/BreadcrumbManager.swift" : {
+    "index-unit-output-path" : "/CrashReporter.build/Release-iphoneos/CrashReporter.build/Objects-normal/arm64/BreadcrumbManager.o",
+    "llvm-bc" : "/Users/souleimagara/Desktop/CrashReporter/build/Build/Intermediates.noindex/CrashReporter.build/Release-iphoneos/CrashReporter.build/Objects-normal/arm64/BreadcrumbManager.bc",
+    "object" : "/Users/souleimagara/Desktop/CrashReporter/build/Build/Intermediates.noindex/CrashReporter.build/Release-iphoneos/CrashReporter.build/Objects-normal/arm64/BreadcrumbManager.o"
+  },
+  "/Users/souleimagara/Desktop/CrashReporter/CrashReporter/CrashData.swift" : {
+    "index-unit-output-path" : "/CrashReporter.build/Release-iphoneos/CrashReporter.build/Objects-normal/arm64/CrashData.o",
+    "llvm-bc" : "/Users/souleimagara/Desktop/CrashReporter/build/Build/Intermediates.noindex/CrashReporter.build/Release-iphoneos/CrashReporter.build/Objects-normal/arm64/CrashData.bc",
+    "object" : "/Users/souleimagara/Desktop/CrashReporter/build/Build/Intermediates.noindex/CrashReporter.build/Release-iphoneos/CrashReporter.build/Objects-normal/arm64/CrashData.o"
+  },
+  "/Users/souleimagara/Desktop/CrashReporter/CrashReporter/CrashHandler.swift" : {
+    "index-unit-output-path" : "/CrashReporter.build/Release-iphoneos/CrashReporter.build/Objects-normal/arm64/CrashHandler.o",
+    "llvm-bc" : "/Users/souleimagara/Desktop/CrashReporter/build/Build/Intermediates.noindex/CrashReporter.build/Release-iphoneos/CrashReporter.build/Objects-normal/arm64/CrashHandler.bc",
+    "object" : "/Users/souleimagara/Desktop/CrashReporter/build/Build/Intermediates.noindex/CrashReporter.build/Release-iphoneos/CrashReporter.build/Objects-normal/arm64/CrashHandler.o"
+  },
+  "/Users/souleimagara/Desktop/CrashReporter/CrashReporter/CrashMarkerHandler.swift" : {
+    "index-unit-output-path" : "/CrashReporter.build/Release-iphoneos/CrashReporter.build/Objects-normal/arm64/CrashMarkerHandler.o",
+    "llvm-bc" : "/Users/souleimagara/Desktop/CrashReporter/build/Build/Intermediates.noindex/CrashReporter.build/Release-iphoneos/CrashReporter.build/Objects-normal/arm64/CrashMarkerHandler.bc",
+    "object" : "/Users/souleimagara/Desktop/CrashReporter/build/Build/Intermediates.noindex/CrashReporter.build/Release-iphoneos/CrashReporter.build/Objects-normal/arm64/CrashMarkerHandler.o"
+  },
+  "/Users/souleimagara/Desktop/CrashReporter/CrashReporter/CrashMetadata.swift" : {
+    "index-unit-output-path" : "/CrashReporter.build/Release-iphoneos/CrashReporter.build/Objects-normal/arm64/CrashMetadata.o",
+    "llvm-bc" : "/Users/souleimagara/Desktop/CrashReporter/build/Build/Intermediates.noindex/CrashReporter.build/Release-iphoneos/CrashReporter.build/Objects-normal/arm64/CrashMetadata.bc",
+    "object" : "/Users/souleimagara/Desktop/CrashReporter/build/Build/Intermediates.noindex/CrashReporter.build/Release-iphoneos/CrashReporter.build/Objects-normal/arm64/CrashMetadata.o"
+  },
+  "/Users/souleimagara/Desktop/CrashReporter/CrashReporter/CrashReporter.swift" : {
+    "index-unit-output-path" : "/CrashReporter.build/Release-iphoneos/CrashReporter.build/Objects-normal/arm64/CrashReporter-818f401663ed3e43229096821338000d.o",
+    "llvm-bc" : "/Users/souleimagara/Desktop/CrashReporter/build/Build/Intermediates.noindex/CrashReporter.build/Release-iphoneos/CrashReporter.build/Objects-normal/arm64/CrashReporter-818f401663ed3e43229096821338000d.bc",
+    "object" : "/Users/souleimagara/Desktop/CrashReporter/build/Build/Intermediates.noindex/CrashReporter.build/Release-iphoneos/CrashReporter.build/Objects-normal/arm64/CrashReporter-818f401663ed3e43229096821338000d.o"
+  },
+  "/Users/souleimagara/Desktop/CrashReporter/CrashReporter/CrashReporterBridge.swift" : {
+    "index-unit-output-path" : "/CrashReporter.build/Release-iphoneos/CrashReporter.build/Objects-normal/arm64/CrashReporterBridge.o",
+    "llvm-bc" : "/Users/souleimagara/Desktop/CrashReporter/build/Build/Intermediates.noindex/CrashReporter.build/Release-iphoneos/CrashReporter.build/Objects-normal/arm64/CrashReporterBridge.bc",
+    "object" : "/Users/souleimagara/Desktop/CrashReporter/build/Build/Intermediates.noindex/CrashReporter.build/Release-iphoneos/CrashReporter.build/Objects-normal/arm64/CrashReporterBridge.o"
+  },
+  "/Users/souleimagara/Desktop/CrashReporter/CrashReporter/CrashReporterLogger.swift" : {
+    "index-unit-output-path" : "/CrashReporter.build/Release-iphoneos/CrashReporter.build/Objects-normal/arm64/CrashReporterLogger.o",
+    "llvm-bc" : "/Users/souleimagara/Desktop/CrashReporter/build/Build/Intermediates.noindex/CrashReporter.build/Release-iphoneos/CrashReporter.build/Objects-normal/arm64/CrashReporterLogger.bc",
+    "object" : "/Users/souleimagara/Desktop/CrashReporter/build/Build/Intermediates.noindex/CrashReporter.build/Release-iphoneos/CrashReporter.build/Objects-normal/arm64/CrashReporterLogger.o"
+  },
+  "/Users/souleimagara/Desktop/CrashReporter/CrashReporter/CrashSender.swift" : {
+    "index-unit-output-path" : "/CrashReporter.build/Release-iphoneos/CrashReporter.build/Objects-normal/arm64/CrashSender.o",
+    "llvm-bc" : "/Users/souleimagara/Desktop/CrashReporter/build/Build/Intermediates.noindex/CrashReporter.build/Release-iphoneos/CrashReporter.build/Objects-normal/arm64/CrashSender.bc",
+    "object" : "/Users/souleimagara/Desktop/CrashReporter/build/Build/Intermediates.noindex/CrashReporter.build/Release-iphoneos/CrashReporter.build/Objects-normal/arm64/CrashSender.o"
+  },
+  "/Users/souleimagara/Desktop/CrashReporter/CrashReporter/CrashStorage.swift" : {
+    "index-unit-output-path" : "/CrashReporter.build/Release-iphoneos/CrashReporter.build/Objects-normal/arm64/CrashStorage.o",
+    "llvm-bc" : "/Users/souleimagara/Desktop/CrashReporter/build/Build/Intermediates.noindex/CrashReporter.build/Release-iphoneos/CrashReporter.build/Objects-normal/arm64/CrashStorage.bc",
+    "object" : "/Users/souleimagara/Desktop/CrashReporter/build/Build/Intermediates.noindex/CrashReporter.build/Release-iphoneos/CrashReporter.build/Objects-normal/arm64/CrashStorage.o"
+  },
+  "/Users/souleimagara/Desktop/CrashReporter/CrashReporter/CustomDataManager.swift" : {
+    "index-unit-output-path" : "/CrashReporter.build/Release-iphoneos/CrashReporter.build/Objects-normal/arm64/CustomDataManager.o",
+    "llvm-bc" : "/Users/souleimagara/Desktop/CrashReporter/build/Build/Intermediates.noindex/CrashReporter.build/Release-iphoneos/CrashReporter.build/Objects-normal/arm64/CustomDataManager.bc",
+    "object" : "/Users/souleimagara/Desktop/CrashReporter/build/Build/Intermediates.noindex/CrashReporter.build/Release-iphoneos/CrashReporter.build/Objects-normal/arm64/CustomDataManager.o"
+  },
+  "/Users/souleimagara/Desktop/CrashReporter/CrashReporter/DeviceInfoCollector.swift" : {
+    "index-unit-output-path" : "/CrashReporter.build/Release-iphoneos/CrashReporter.build/Objects-normal/arm64/DeviceInfoCollector.o",
+    "llvm-bc" : "/Users/souleimagara/Desktop/CrashReporter/build/Build/Intermediates.noindex/CrashReporter.build/Release-iphoneos/CrashReporter.build/Objects-normal/arm64/DeviceInfoCollector.bc",
+    "object" : "/Users/souleimagara/Desktop/CrashReporter/build/Build/Intermediates.noindex/CrashReporter.build/Release-iphoneos/CrashReporter.build/Objects-normal/arm64/DeviceInfoCollector.o"
+  },
+  "/Users/souleimagara/Desktop/CrashReporter/CrashReporter/PerformanceMetricsCollector.swift" : {
+    "index-unit-output-path" : "/CrashReporter.build/Release-iphoneos/CrashReporter.build/Objects-normal/arm64/PerformanceMetricsCollector.o",
+    "llvm-bc" : "/Users/souleimagara/Desktop/CrashReporter/build/Build/Intermediates.noindex/CrashReporter.build/Release-iphoneos/CrashReporter.build/Objects-normal/arm64/PerformanceMetricsCollector.bc",
+    "object" : "/Users/souleimagara/Desktop/CrashReporter/build/Build/Intermediates.noindex/CrashReporter.build/Release-iphoneos/CrashReporter.build/Objects-normal/arm64/PerformanceMetricsCollector.o"
+  },
+  "/Users/souleimagara/Desktop/CrashReporter/CrashReporter/SDKContextStorage.swift" : {
+    "index-unit-output-path" : "/CrashReporter.build/Release-iphoneos/CrashReporter.build/Objects-normal/arm64/SDKContextStorage.o",
+    "llvm-bc" : "/Users/souleimagara/Desktop/CrashReporter/build/Build/Intermediates.noindex/CrashReporter.build/Release-iphoneos/CrashReporter.build/Objects-normal/arm64/SDKContextStorage.bc",
+    "object" : "/Users/souleimagara/Desktop/CrashReporter/build/Build/Intermediates.noindex/CrashReporter.build/Release-iphoneos/CrashReporter.build/Objects-normal/arm64/SDKContextStorage.o"
+  },
+  "/Users/souleimagara/Desktop/CrashReporter/CrashReporter/SDKInfoManager.swift" : {
+    "index-unit-output-path" : "/CrashReporter.build/Release-iphoneos/CrashReporter.build/Objects-normal/arm64/SDKInfoManager.o",
+    "llvm-bc" : "/Users/souleimagara/Desktop/CrashReporter/build/Build/Intermediates.noindex/CrashReporter.build/Release-iphoneos/CrashReporter.build/Objects-normal/arm64/SDKInfoManager.bc",
+    "object" : "/Users/souleimagara/Desktop/CrashReporter/build/Build/Intermediates.noindex/CrashReporter.build/Release-iphoneos/CrashReporter.build/Objects-normal/arm64/SDKInfoManager.o"
+  },
+  "/Users/souleimagara/Desktop/CrashReporter/CrashReporter/SDKPerformanceMetricsManager.swift" : {
+    "index-unit-output-path" : "/CrashReporter.build/Release-iphoneos/CrashReporter.build/Objects-normal/arm64/SDKPerformanceMetricsManager.o",
+    "llvm-bc" : "/Users/souleimagara/Desktop/CrashReporter/build/Build/Intermediates.noindex/CrashReporter.build/Release-iphoneos/CrashReporter.build/Objects-normal/arm64/SDKPerformanceMetricsManager.bc",
+    "object" : "/Users/souleimagara/Desktop/CrashReporter/build/Build/Intermediates.noindex/CrashReporter.build/Release-iphoneos/CrashReporter.build/Objects-normal/arm64/SDKPerformanceMetricsManager.o"
+  },
+  "/Users/souleimagara/Desktop/CrashReporter/CrashReporter/SDKUserStateManager.swift" : {
+    "index-unit-output-path" : "/CrashReporter.build/Release-iphoneos/CrashReporter.build/Objects-normal/arm64/SDKUserStateManager.o",
+    "llvm-bc" : "/Users/souleimagara/Desktop/CrashReporter/build/Build/Intermediates.noindex/CrashReporter.build/Release-iphoneos/CrashReporter.build/Objects-normal/arm64/SDKUserStateManager.bc",
+    "object" : "/Users/souleimagara/Desktop/CrashReporter/build/Build/Intermediates.noindex/CrashReporter.build/Release-iphoneos/CrashReporter.build/Objects-normal/arm64/SDKUserStateManager.o"
+  },
+  "/Users/souleimagara/Desktop/CrashReporter/CrashReporter/SessionManager.swift" : {
+    "index-unit-output-path" : "/CrashReporter.build/Release-iphoneos/CrashReporter.build/Objects-normal/arm64/SessionManager.o",
+    "llvm-bc" : "/Users/souleimagara/Desktop/CrashReporter/build/Build/Intermediates.noindex/CrashReporter.build/Release-iphoneos/CrashReporter.build/Objects-normal/arm64/SessionManager.bc",
+    "object" : "/Users/souleimagara/Desktop/CrashReporter/build/Build/Intermediates.noindex/CrashReporter.build/Release-iphoneos/CrashReporter.build/Objects-normal/arm64/SessionManager.o"
+  },
+  "/Users/souleimagara/Desktop/CrashReporter/CrashReporter/StartupCrashDetector.swift" : {
+    "index-unit-output-path" : "/CrashReporter.build/Release-iphoneos/CrashReporter.build/Objects-normal/arm64/StartupCrashDetector.o",
+    "llvm-bc" : "/Users/souleimagara/Desktop/CrashReporter/build/Build/Intermediates.noindex/CrashReporter.build/Release-iphoneos/CrashReporter.build/Objects-normal/arm64/StartupCrashDetector.bc",
+    "object" : "/Users/souleimagara/Desktop/CrashReporter/build/Build/Intermediates.noindex/CrashReporter.build/Release-iphoneos/CrashReporter.build/Objects-normal/arm64/StartupCrashDetector.o"
+  },
+  "/Users/souleimagara/Desktop/CrashReporter/CrashReporter/UnityInfoManager.swift" : {
+    "index-unit-output-path" : "/CrashReporter.build/Release-iphoneos/CrashReporter.build/Objects-normal/arm64/UnityInfoManager.o",
+    "llvm-bc" : "/Users/souleimagara/Desktop/CrashReporter/build/Build/Intermediates.noindex/CrashReporter.build/Release-iphoneos/CrashReporter.build/Objects-normal/arm64/UnityInfoManager.bc",
+    "object" : "/Users/souleimagara/Desktop/CrashReporter/build/Build/Intermediates.noindex/CrashReporter.build/Release-iphoneos/CrashReporter.build/Objects-normal/arm64/UnityInfoManager.o"
+  },
+  "/Users/souleimagara/Desktop/CrashReporter/CrashReporter/WatchdogDetector.swift" : {
+    "index-unit-output-path" : "/CrashReporter.build/Release-iphoneos/CrashReporter.build/Objects-normal/arm64/WatchdogDetector.o",
+    "llvm-bc" : "/Users/souleimagara/Desktop/CrashReporter/build/Build/Intermediates.noindex/CrashReporter.build/Release-iphoneos/CrashReporter.build/Objects-normal/arm64/WatchdogDetector.bc",
+    "object" : "/Users/souleimagara/Desktop/CrashReporter/build/Build/Intermediates.noindex/CrashReporter.build/Release-iphoneos/CrashReporter.build/Objects-normal/arm64/WatchdogDetector.o"
+  }
+}

@@ -1,0 +1,73 @@
+// swift-interface-format-version: 1.0
+// swift-compiler-version: Apple Swift version 6.2.1 effective-5.10 (swiftlang-6.2.1.4.8 clang-1700.4.4.1)
+// swift-module-flags: -target x86_64-apple-ios13.0-simulator -enable-objc-interop -enable-library-evolution -swift-version 5 -enforce-exclusivity=checked -O -enable-upcoming-feature DisableOutwardActorInference -enable-upcoming-feature InferSendableFromCaptures -enable-upcoming-feature GlobalActorIsolatedTypesUsability -enable-upcoming-feature MemberImportVisibility -enable-upcoming-feature InferIsolatedConformances -enable-upcoming-feature NonisolatedNonsendingByDefault -enable-experimental-feature DebugDescriptionMacro -enable-bare-slash-regex -module-name CrashReporter
+// swift-module-flags-ignorable:  -formal-cxx-interoperability-mode=off -interface-compiler-version 6.2.1
+import Compression
+import Darwin
+import Foundation
+import MachO
+import Network
+import Swift
+import SystemConfiguration
+import UIKit
+import _Concurrency
+import _StringProcessing
+import _SwiftConcurrencyShims
+import os
+@_hasMissingDesignatedInitializers public class CrashReporterCore {
+  public static let shared: CrashReporter.CrashReporterCore
+  public func initialize(apiEndpoint: Swift.String)
+  public func sendPendingCrashesNow()
+  public func checkIsInitialized() -> Swift.Bool
+  public func getPendingCrashCount() -> Swift.Int
+  #if compiler(>=5.3) && $NonescapableTypes
+  public func setUserContext(userId: Swift.String?, email: Swift.String? = nil, username: Swift.String? = nil)
+  #endif
+  public func setTag(key: Swift.String, value: Swift.String)
+  public func removeTag(key: Swift.String)
+  public func setEnvironment(env: Swift.String)
+  public func addBreadcrumb(category: Swift.String, message: Swift.String, level: Swift.String = "info", data: [Swift.String : Swift.String] = [:])
+  public func clearAllCrashes()
+  public static func markAppStartup()
+  public static func markInitializationComplete()
+  public static func markAppTerminating()
+  @objc deinit
+}
+@_cdecl("CrashReporter_Initialize")
+public func CrashReporter_Initialize(_ apiEndpoint: Swift.UnsafePointer<Swift.CChar>)
+@_cdecl("CrashReporter_IsInitialized")
+public func CrashReporter_IsInitialized() -> Swift.Bool
+@_cdecl("CrashReporter_GetPendingCrashCount")
+public func CrashReporter_GetPendingCrashCount() -> Swift.Int32
+@_cdecl("CrashReporter_SendPendingCrashes")
+public func CrashReporter_SendPendingCrashes()
+#if compiler(>=5.3) && $NonescapableTypes
+@_cdecl("CrashReporter_SetUserContext")
+public func CrashReporter_SetUserContext(_ userId: Swift.UnsafePointer<Swift.CChar>?, _ email: Swift.UnsafePointer<Swift.CChar>?, _ username: Swift.UnsafePointer<Swift.CChar>?)
+#endif
+@_cdecl("CrashReporter_SetTag")
+public func CrashReporter_SetTag(_ key: Swift.UnsafePointer<Swift.CChar>, _ value: Swift.UnsafePointer<Swift.CChar>)
+@_cdecl("CrashReporter_RemoveTag")
+public func CrashReporter_RemoveTag(_ key: Swift.UnsafePointer<Swift.CChar>)
+@_cdecl("CrashReporter_SetEnvironment")
+public func CrashReporter_SetEnvironment(_ env: Swift.UnsafePointer<Swift.CChar>)
+@_cdecl("CrashReporter_AddBreadcrumb")
+public func CrashReporter_AddBreadcrumb(_ category: Swift.UnsafePointer<Swift.CChar>, _ message: Swift.UnsafePointer<Swift.CChar>, _ level: Swift.UnsafePointer<Swift.CChar>)
+@_cdecl("CrashReporter_HasPendingCrashes")
+public func CrashReporter_HasPendingCrashes() -> Swift.Int32
+@_cdecl("CrashReporter_PendingCrashCount")
+public func CrashReporter_PendingCrashCount() -> Swift.Int32
+@_cdecl("CrashReporter_SetSDKInfo")
+public func CrashReporter_SetSDKInfo(_ json: Swift.UnsafePointer<Swift.CChar>)
+@_cdecl("CrashReporter_SetUnityInfo")
+public func CrashReporter_SetUnityInfo(_ json: Swift.UnsafePointer<Swift.CChar>)
+@_cdecl("CrashReporter_SetPerformanceMetrics")
+public func CrashReporter_SetPerformanceMetrics(_ json: Swift.UnsafePointer<Swift.CChar>)
+@_cdecl("CrashReporter_SetSDKUserState")
+public func CrashReporter_SetSDKUserState(_ json: Swift.UnsafePointer<Swift.CChar>)
+@_cdecl("CrashReporter_ClearAllCrashes")
+public func CrashReporter_ClearAllCrashes()
+@_cdecl("TriggerSignalCrash")
+public func TriggerSignalCrash(_ signal: Swift.Int32)
+@_cdecl("CrashReporter_SetSDKContext")
+public func CrashReporter_SetSDKContext(_ contextJsonCString: Swift.UnsafePointer<Swift.CChar>)
