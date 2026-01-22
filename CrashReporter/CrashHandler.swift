@@ -2,6 +2,10 @@ import Foundation
 import UIKit
 import MachO
 
+// External C signal handler (implemented in CrashReporterC.c)
+@_silgen_name("CrashReporter_SignalHandler")
+func CrashReporter_SignalHandler(_ signal: Int32) -> Void
+
 class CrashHandler {
     private let crashStorage: CrashStorage
     private let crashSender: CrashSender
@@ -42,10 +46,10 @@ class CrashHandler {
         // Signals to catch
         let signals = [SIGABRT, SIGILL, SIGSEGV, SIGFPE, SIGBUS, SIGPIPE]
 
+        // CRITICAL FIX: Use C function pointer, not Swift closure
+        // Signal handlers MUST be C functions to work correctly
         for sig in signals {
-            signal(sig) { signal in
-                CrashReporterCore.shared.handleSignal(signal)
-            }
+            signal(sig, CrashReporter_SignalHandler)
         }
 
         CrashReporterLogger.info("Signal handler installed for SIGABRT, SIGILL, SIGSEGV, SIGFPE, SIGBUS, SIGPIPE", log: CrashReporterLogger.crashHandler)
@@ -94,6 +98,8 @@ class CrashHandler {
         let timestamp = Int64(Date().timeIntervalSince1970 * 1000)
         let crashId = UUID().uuidString
         let signalName = getSignalName(signal)
+        let signalNameFormatted = getFormattedSignalName(signal)  // Format: "SIGABRT (6)"
+        let stackTrace = getSignalStackTrace()
 
         // Collect Tier 2 data
         let performanceMetrics = PerformanceMetricsCollector.shared.getCurrentMetrics()
@@ -103,12 +109,45 @@ class CrashHandler {
             recentEvents: recentEvents
         )
 
+        // Extract fault address from CPU registers if available
+        let faultAddress = extractFaultAddress(from: getCPURegisters())
+
+        // Generate fingerprint for deduplication
+        let fingerprint = CrashFingerprinting.generateFingerprint(from: stackTrace)
+
+        // Classify severity
+        let severity = CrashGrouping.classifySeverity(
+            exceptionType: signalNameFormatted,
+            isANR: false,
+            isNativeCrash: true,
+            isStartupCrash: false,
+            threadName: Thread.current.name ?? "main"
+        )
+
+        // Generate issue title
+        let issueTitle = CrashGrouping.generateIssueTitle(
+            exceptionType: signalNameFormatted,
+            topFrameFunction: extractTopFunction(from: stackTrace),
+            threadName: Thread.current.name ?? "main"
+        )
+
+        // Check crash loop status
+        let isInLoop = CrashLoopDetector.shared.isInCrashLoop()
+        let crashLoopCount = CrashLoopDetector.shared.getCrashCount()
+
+        // Collect tracking data
+        let memoryWarnings = MemoryWarningTracker.shared.getMemoryWarnings()
+        let networkChanges = NetworkReachabilityTracker.shared.getNetworkChanges()
+
+        var customData = CustomDataManager.shared.getCustomData()
+        customData = SensitiveDataScrubber.scrubDictionary(customData)
+
         return CrashData(
             crashId: crashId,
             timestamp: timestamp,
-            exceptionType: signalName,
+            exceptionType: signalNameFormatted,  // Now formatted as "SIGABRT (6)"
             exceptionMessage: "Signal \(signal) - \(getSignalDescription(signal))",
-            stackTrace: getSignalStackTrace(),
+            stackTrace: SensitiveDataScrubber.scrubStackTrace(stackTrace),
             threadName: Thread.current.name ?? "main",
             deviceInfo: deviceInfoCollector.getDeviceInfo(),
             appInfo: deviceInfoCollector.getAppInfo(),
@@ -119,13 +158,25 @@ class CrashHandler {
             processInfo: deviceInfoCollector.getProcessInfo(),
             allThreads: limitThreadStackFrames(getAllThreadInfo()),
             breadcrumbs: BreadcrumbManager.shared.getBreadcrumbs(),
-            customData: CustomDataManager.shared.getCustomData(),
+            customData: customData,
             environment: CustomDataManager.shared.getEnvironment(),
             cpuRegisters: getCPURegisters(),
             memoryState: getMemoryState(),
-            binaryImages: getBinaryImages(),
+            binaryImages: [],  // Not sent to reduce payload size (Android doesn't send this)
             sessionInfo: SessionManager.shared.getSessionInfo(),
             sessionAnalytics: sessionAnalytics,
+            isANR: false,  // Signal crash is not ANR
+            isNativeCrash: true,  // This is a native signal crash
+            anrDurationMs: nil,
+            nativeSignal: signalNameFormatted,  // Store formatted signal name
+            nativeFaultAddress: faultAddress,
+            crashFingerprint: fingerprint,
+            severity: severity.rawValue,
+            issueTitle: issueTitle,
+            memoryWarnings: memoryWarnings,
+            networkChanges: networkChanges,
+            isInCrashLoop: isInLoop,
+            crashLoopCount: crashLoopCount,
             sdk_info: SDKInfoManager.shared.getSDKInfo() ?? SDKInfoManager.shared.createDefaultSDKInfo(),
             sdk_user_state: SDKUserStateManager.shared.getUserState() ?? SDKUserStateManager.shared.createDefaultUserState(),
             unity_info: UnityInfoManager.shared.getUnityInfo() ?? UnityInfoManager.shared.createDefaultUnityInfo()
@@ -146,6 +197,12 @@ class CrashHandler {
         }
     }
 
+    /// Format signal as "SIGABRT (6)" - includes signal number for Android parity
+    private func getFormattedSignalName(_ signal: Int32) -> String {
+        let name = getSignalName(signal)
+        return "\(name) (\(signal))"
+    }
+
     private func getSignalDescription(_ signal: Int32) -> String {
         switch signal {
         case SIGABRT: return "Abort signal (abnormal termination)"
@@ -156,6 +213,45 @@ class CrashHandler {
         case SIGPIPE: return "Broken pipe"
         default: return "Unknown signal"
         }
+    }
+
+    /// Extract fault address from CPU registers (typically in PC or X30 register)
+    private func extractFaultAddress(from registers: CPURegisters?) -> String? {
+        guard let registers = registers else { return nil }
+
+        // Try to get fault address from program counter (PC) or other registers
+        if let pc = registers.pc, pc > 0 {
+            return String(format: "0x%llx", pc)
+        }
+
+        // Fallback to link register if available
+        if let lr = registers.lr, lr > 0 {
+            return String(format: "0x%llx", lr)
+        }
+
+        return nil
+    }
+
+    /// Extract top function name from stack trace
+    private func extractTopFunction(from stackTrace: String) -> String {
+        let lines = stackTrace.split(separator: "\n")
+
+        // Find first frame line (skip header lines)
+        for line in lines {
+            let lineStr = String(line)
+            if lineStr.starts(with: "0") || lineStr.starts(with: "1") {
+                // Try to extract function name
+                let components = lineStr.split(separator: " ")
+                for component in components {
+                    let comp = String(component)
+                    if !comp.hasPrefix("0x") && !comp.isEmpty {
+                        return comp
+                    }
+                }
+            }
+        }
+
+        return ""
     }
 
     private func getSignalStackTrace() -> String {
@@ -204,12 +300,111 @@ class CrashHandler {
             previousHandler(exception)
         }
     }
-    
+
+    // MARK: - Handle Managed Exception (C# Exceptions)
+
+    func handleManagedException(exceptionType: String, exceptionMessage: String, stackTrace: String, isFatal: Bool) {
+        print("🔴 [MANAGED_EXCEPTION] Processing C# exception: \(exceptionType)")
+
+        // Collect crash data for managed exception
+        let timestamp = Int64(Date().timeIntervalSince1970 * 1000)
+        let crashId = UUID().uuidString
+        let deviceState = deviceInfoCollector.getDeviceState()
+        let processInfo = deviceInfoCollector.getProcessInfo()
+
+        // Generate fingerprint for deduplication
+        let fingerprint = CrashFingerprinting.generateFingerprint(from: stackTrace)
+
+        // Classify severity based on whether it's fatal
+        let severity = isFatal ? "CRITICAL" : "HIGH"
+
+        // Generate issue title
+        let issueTitle = "C# Exception: \(exceptionType)"
+
+        // Get custom data (with all SDK context)
+        var customData = CustomDataManager.shared.getCustomData()
+        customData["isManagedException"] = "true"
+        customData["isFatal"] = String(isFatal)
+        customData = SensitiveDataScrubber.scrubDictionary(customData)
+
+        // Check crash loop status
+        let isInLoop = CrashLoopDetector.shared.isInCrashLoop()
+        let crashLoopCount = CrashLoopDetector.shared.getCrashCount()
+
+        // Get SDK info, Unity info, user state
+        let sdkInfo = SDKInfoManager.shared.getSDKInfo()
+        let unityInfo = UnityInfoManager.shared.getUnityInfo()
+        let sdkUserState = SDKUserStateManager.shared.getUserState()
+
+        let crashData = CrashData(
+            crashId: crashId,
+            timestamp: timestamp,
+            exceptionType: exceptionType,
+            exceptionMessage: exceptionMessage,
+            stackTrace: stackTrace,
+            threadName: Thread.current.name ?? "main",
+            deviceInfo: deviceInfoCollector.getDeviceInfo(),
+            appInfo: deviceInfoCollector.getAppInfo(),
+            deviceState: deviceState,
+            networkInfo: deviceInfoCollector.getNetworkInfo(),
+            memoryInfo: deviceInfoCollector.getMemoryInfo(),
+            cpuInfo: deviceInfoCollector.getCpuInfo(),
+            processInfo: processInfo,
+            allThreads: limitThreadStackFrames(getAllThreadInfo()),
+            breadcrumbs: BreadcrumbManager.shared.getBreadcrumbs(),
+            customData: customData,
+            environment: CustomDataManager.shared.getEnvironment(),
+            cpuRegisters: nil,
+            memoryState: nil,
+            binaryImages: [],  // Not sent to reduce payload size (Android doesn't send this)
+            sessionInfo: SessionInfo(
+                sessionId: UUID().uuidString,
+                sessionStartTime: timestamp,
+                sessionDurationMs: 0,
+                isInForeground: UIApplication.shared.applicationState == .active,
+                eventsBeforeCrash: 0,
+                appWasInBackground: UIApplication.shared.applicationState != .active
+            ),
+            sessionAnalytics: nil,
+            isANR: false,
+            isNativeCrash: false,
+            anrDurationMs: nil,
+            nativeSignal: nil,
+            nativeFaultAddress: nil,
+            crashFingerprint: fingerprint,
+            severity: severity,
+            issueTitle: issueTitle,
+            memoryWarnings: MemoryWarningTracker.shared.getMemoryWarnings(),
+            networkChanges: NetworkReachabilityTracker.shared.getNetworkChanges(),
+            isInCrashLoop: isInLoop,
+            crashLoopCount: crashLoopCount,
+            sdk_info: sdkInfo,
+            sdk_user_state: sdkUserState,
+            unity_info: unityInfo
+        )
+
+        // Save crash
+        crashStorage.saveCrash(crashData)
+        print("✅ [MANAGED_EXCEPTION] C# exception saved - \(crashData.crashId)")
+
+        // Send immediately (like Android)
+        crashSender.sendAllPendingCrashes()
+        print("📤 [MANAGED_EXCEPTION] Sent crash report to webhook")
+    }
+
     // MARK: - Collect Crash Data
-    
+
     private func collectCrashData(exception: NSException) -> CrashData {
         let timestamp = Int64(Date().timeIntervalSince1970 * 1000)
         let crashId = UUID().uuidString
+        let deviceState = deviceInfoCollector.getDeviceState()
+        let processInfo = deviceInfoCollector.getProcessInfo()
+        let stackTrace = getStackTrace(exception: exception)
+
+        // Check if this is an ANR crash (watchdog timeout detected)
+        let watchdogData = WatchdogDetector.detectWatchdogTimeout()
+        let isANR = watchdogData != nil
+        let anrDurationMs = isANR ? watchdogData?.timeSinceLastHeartbeat : nil
 
         // Collect Tier 2 data
         let performanceMetrics = PerformanceMetricsCollector.shared.getCurrentMetrics()
@@ -219,33 +414,99 @@ class CrashHandler {
             recentEvents: recentEvents
         )
 
+        // Classify exception type
+        let exceptionType = classifyExceptionType(isANR: isANR)
+        let exceptionMessage = isANR ? "Application Not Responding" : (exception.reason ?? "No message")
+
+        // Generate fingerprint for deduplication
+        let fingerprint = CrashFingerprinting.generateFingerprint(from: stackTrace)
+
+        // Classify severity
+        let severity = CrashGrouping.classifySeverity(
+            exceptionType: exceptionType,
+            isANR: isANR,
+            isNativeCrash: false,
+            isStartupCrash: false,
+            threadName: Thread.current.name ?? "main"
+        )
+
+        // Generate issue title
+        let issueTitle = CrashGrouping.generateIssueTitle(
+            exceptionType: exceptionType,
+            topFrameFunction: extractTopFunction(from: stackTrace),
+            threadName: Thread.current.name ?? "main"
+        )
+
+        // Validate ANR if detected
+        var customData = CustomDataManager.shared.getCustomData()
+        if isANR {
+            let validation = ANRValidator.validateANR(
+                watchdogDurationMs: anrDurationMs ?? 0,
+                deviceState: deviceState,
+                processInfo: processInfo
+            )
+            customData = ANRValidator.enrichCustomDataWithValidation(customData, validation: validation)
+        }
+
+        // Scrub sensitive data
+        customData = SensitiveDataScrubber.scrubDictionary(customData)
+
+        // Check crash loop status
+        let isInLoop = CrashLoopDetector.shared.isInCrashLoop()
+        let crashLoopCount = CrashLoopDetector.shared.getCrashCount()
+
+        // Collect tracking data
+        let memoryWarnings = MemoryWarningTracker.shared.getMemoryWarnings()
+        let networkChanges = NetworkReachabilityTracker.shared.getNetworkChanges()
+
         return CrashData(
             crashId: crashId,
             timestamp: timestamp,
-            exceptionType: exception.name.rawValue,
-            exceptionMessage: exception.reason ?? "No message",
-            stackTrace: getStackTrace(exception: exception),
+            exceptionType: exceptionType,
+            exceptionMessage: SensitiveDataScrubber.scrubExceptionMessage(exceptionMessage),
+            stackTrace: SensitiveDataScrubber.scrubStackTrace(stackTrace),
             threadName: Thread.current.name ?? "main",
             deviceInfo: deviceInfoCollector.getDeviceInfo(),
             appInfo: deviceInfoCollector.getAppInfo(),
-            deviceState: deviceInfoCollector.getDeviceState(),
+            deviceState: deviceState,
             networkInfo: deviceInfoCollector.getNetworkInfo(),
             memoryInfo: deviceInfoCollector.getMemoryInfo(),
             cpuInfo: deviceInfoCollector.getCpuInfo(),
-            processInfo: deviceInfoCollector.getProcessInfo(),
+            processInfo: processInfo,
             allThreads: limitThreadStackFrames(getAllThreadInfo()),
             breadcrumbs: BreadcrumbManager.shared.getBreadcrumbs(),
-            customData: CustomDataManager.shared.getCustomData(),
+            customData: customData,
             environment: CustomDataManager.shared.getEnvironment(),
             cpuRegisters: getCPURegisters(),
             memoryState: getMemoryState(),
-            binaryImages: getBinaryImages(),
+            binaryImages: [],  // Not sent to reduce payload size (Android doesn't send this)
             sessionInfo: SessionManager.shared.getSessionInfo(),
             sessionAnalytics: sessionAnalytics,
+            isANR: isANR,
+            isNativeCrash: false,  // Exceptions are not native crashes
+            anrDurationMs: anrDurationMs != nil ? Int(anrDurationMs!) : nil,
+            nativeSignal: nil,
+            nativeFaultAddress: nil,
+            crashFingerprint: fingerprint,
+            severity: severity.rawValue,
+            issueTitle: issueTitle,
+            memoryWarnings: memoryWarnings,
+            networkChanges: networkChanges,
+            isInCrashLoop: isInLoop,
+            crashLoopCount: crashLoopCount,
             sdk_info: SDKInfoManager.shared.getSDKInfo() ?? SDKInfoManager.shared.createDefaultSDKInfo(),
             sdk_user_state: SDKUserStateManager.shared.getUserState() ?? SDKUserStateManager.shared.createDefaultUserState(),
             unity_info: UnityInfoManager.shared.getUnityInfo() ?? UnityInfoManager.shared.createDefaultUnityInfo()
         )
+    }
+
+    /// Classify exception type for webhook parity with Android
+    /// - Returns: "ANR" if application not responding, "Exception" otherwise
+    private func classifyExceptionType(isANR: Bool) -> String {
+        if isANR {
+            return "ANR"  // Standardized ANR type
+        }
+        return "Exception"  // Standardized exception type (not the specific class name)
     }
     
     // MARK: - Get Stack Trace
@@ -299,19 +560,40 @@ class CrashHandler {
 
     /// Limit non-crashed thread stack traces to 10 frames (keep full stack for crashed thread)
     private func limitThreadStackFrames(_ threads: [ThreadInfo]) -> [ThreadInfo] {
-        let maxFramesForNonCrashed = 10
+        // COST OPTIMIZATION: Match Android limits
+        let maxThreads = 5  // Max 5 threads total
+        let maxStackLinesForCrashed = 100  // Max 100 lines for crashed thread
+        let maxStackLinesForOthers = 10  // Max 10 lines for other threads
         let mainThreadId = UInt64(pthread_mach_thread_np(pthread_self()))
 
-        return threads.map { thread in
-            // Keep full stack for crashed thread (typically main thread)
-            if thread.id == mainThreadId {
-                return thread
-            }
+        // Find crashed/main thread
+        let crashedThread = threads.first { $0.id == mainThreadId }
 
-            // Limit other threads to maxFramesForNonCrashed frames
+        // Get other important threads (prioritize "main" by name)
+        let otherThreads = threads.filter { $0.id != mainThreadId }
+            .sorted { a, b in
+                // Prioritize main thread by name
+                if a.name == "main" && b.name != "main" { return true }
+                if a.name != "main" && b.name == "main" { return false }
+                return false
+            }
+            .prefix(maxThreads - 1)
+
+        // Combine: crashed thread + up to 4 others = max 5 threads
+        let limitedThreads = ([crashedThread].compactMap { $0 } + otherThreads)
+
+        return limitedThreads.map { thread in
             let stackLines = thread.stackTrace.split(separator: "\n")
-            let limitedLines = stackLines.prefix(maxFramesForNonCrashed)
+
+            // Limit stack trace lines based on thread type
+            let maxLines = (thread.id == mainThreadId) ? maxStackLinesForCrashed : maxStackLinesForOthers
+            let limitedLines = stackLines.prefix(maxLines)
             let limitedStackTrace = limitedLines.joined(separator: "\n")
+
+            // Add truncation notice if needed
+            let finalStackTrace = stackLines.count > maxLines
+                ? limitedStackTrace + "\n... [\(stackLines.count - maxLines) more lines truncated]"
+                : limitedStackTrace
 
             return ThreadInfo(
                 id: thread.id,
@@ -319,7 +601,7 @@ class CrashHandler {
                 state: thread.state,
                 priority: thread.priority,
                 isDaemon: thread.isDaemon,
-                stackTrace: limitedStackTrace
+                stackTrace: finalStackTrace
             )
         }
     }

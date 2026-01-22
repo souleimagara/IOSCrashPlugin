@@ -65,6 +65,23 @@ class SDKPerformanceMetricsManager {
         )
     }
 
+    // MARK: - Export to Dictionary
+
+    /// Convert performance metrics to dictionary for persistence
+    func toDict() -> [String: Any]? {
+        guard let metrics = getPerformanceMetrics() else { return nil }
+
+        return [
+            "averageFps": metrics.averageFps,
+            "minimumFps": metrics.minimumFps,
+            "maximumFps": metrics.maximumFps,
+            "memoryUsageMB": metrics.memoryUsageMB,
+            "peakMemoryMB": metrics.peakMemoryMB,
+            "cpuUsagePercent": metrics.cpuUsagePercent,
+            "thermalState": metrics.thermalState
+        ]
+    }
+
     // MARK: - Reset (for testing)
 
     func reset() {

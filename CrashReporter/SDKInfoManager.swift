@@ -93,6 +93,47 @@ class SDKInfoManager {
         )
     }
 
+    // MARK: - Export to Dictionary
+
+    /// Convert SDK info to dictionary for persistence
+    func toDict() -> [String: Any]? {
+        guard let info = getSDKInfo() else { return nil }
+
+        var dict: [String: Any] = [
+            "sdk_version": info.sdk_version,
+            "sdk_initialized": info.sdk_initialized,
+            "sdk_initialization_time_ms": info.sdk_initialization_time_ms,
+            "sdk_uptime_seconds": info.sdk_uptime_seconds,
+            "active_operations": info.active_operations,
+            "pending_requests": info.pending_requests
+        ]
+
+        if let lastOp = info.sdk_last_operation {
+            dict["sdk_last_operation"] = lastOp
+        }
+        if let lastSuccessOp = info.last_successful_operation {
+            dict["last_successful_operation"] = lastSuccessOp
+        }
+        if let lastSuccessTime = info.last_successful_operation_time {
+            dict["last_successful_operation_time"] = lastSuccessTime
+        }
+        if let lastError = info.last_api_error {
+            dict["last_api_error"] = lastError
+        }
+        if let endpoint = info.api_endpoint {
+            dict["api_endpoint"] = endpoint
+        }
+        if let config = info.configuration {
+            dict["configuration"] = [
+                "timeout_seconds": config.timeout_seconds,
+                "retry_enabled": config.retry_enabled,
+                "auto_claim_rewards": config.auto_claim_rewards
+            ]
+        }
+
+        return dict
+    }
+
     // MARK: - Reset (for testing)
 
     func reset() {

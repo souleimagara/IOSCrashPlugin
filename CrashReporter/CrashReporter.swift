@@ -1,5 +1,6 @@
 import Foundation
 import UIKit
+import CommonCrypto
 
 public class CrashReporterCore {
     public static let shared = CrashReporterCore()
@@ -93,15 +94,81 @@ public class CrashReporterCore {
 
         print("🚨 [INIT] CRITICAL: Detected previous signal crash - \(markerData.getSignalName())")
 
-        // Try to load stored SDK context from C#
-        var sdkContextJson: String? = nil
-        if let storedContext = SDKContextStorage.getStoredSDKContext() {
-            sdkContextJson = storedContext
-            print("✅ [INIT] Loaded stored SDK context from C#")
+        // Load persisted complete context bundle (SDK info, Unity info, operations, user state, etc.)
+        let persistedContext = SDKContextStorage.getPersistedCompleteContext()
+
+        // Extract and decode SDK info
+        var sdkInfo: SDKInfo? = nil
+        if let context = persistedContext, let sdkDict = context["sdk_info"] as? [String: Any] {
+            do {
+                let jsonData = try JSONSerialization.data(withJSONObject: sdkDict, options: [])
+                sdkInfo = try JSONDecoder().decode(SDKInfo.self, from: jsonData)
+                print("✅ [INIT] Loaded SDK info from persisted context")
+            } catch {
+                print("⚠️ [INIT] Failed to decode SDK info: \(error)")
+            }
         }
 
-        // Create basic crash report from marker
-        // Stack trace unavailable because process was terminated
+        // Extract and decode Unity info
+        var unityInfo: UnityInfo? = nil
+        if let context = persistedContext, let unityDict = context["unity_info"] as? [String: Any] {
+            do {
+                let jsonData = try JSONSerialization.data(withJSONObject: unityDict, options: [])
+                unityInfo = try JSONDecoder().decode(UnityInfo.self, from: jsonData)
+                print("✅ [INIT] Loaded Unity info from persisted context")
+            } catch {
+                print("⚠️ [INIT] Failed to decode Unity info: \(error)")
+            }
+        }
+
+        // Extract and decode SDK user state
+        var sdkUserState: SDKUserState? = nil
+        if let context = persistedContext, let userStateDict = context["sdk_user_state"] as? [String: Any] {
+            do {
+                let jsonData = try JSONSerialization.data(withJSONObject: userStateDict, options: [])
+                sdkUserState = try JSONDecoder().decode(SDKUserState.self, from: jsonData)
+                print("✅ [INIT] Loaded SDK user state from persisted context")
+            } catch {
+                print("⚠️ [INIT] Failed to decode SDK user state: \(error)")
+            }
+        }
+
+        // Extract operation tracking data
+        let currentOperation = persistedContext?["currentOperation"] as? String
+        let lastSuccessfulOperation = persistedContext?["lastSuccessfulOperation"] as? String
+        let lastFailedOperation = persistedContext?["lastFailedOperation"] as? String
+        let lastOperationError = persistedContext?["lastOperationError"] as? String
+        let sdkVersion = persistedContext?["sdkVersion"] as? String ?? "unknown"
+
+        // Extract metadata
+        let platform = persistedContext?["platform"] as? String ?? "iOS"
+        let crashReporterPluginVersion = persistedContext?["crashReporterPluginVersion"] as? String ?? "1.0.0"
+        let isDebugBuild = persistedContext?["isDebugBuild"] as? Bool ?? false
+        let environment = persistedContext?["environment"] as? String
+
+        // Generate crash fingerprint for deduplication (SHA256 hash of signal type)
+        let crashFingerprint = generateCrashFingerprint(signalName: markerData.getSignalName())
+
+        // Build custom data with all SDK context
+        var customData = CustomDataManager.shared.getCustomData()
+        customData["sdkVersion"] = sdkVersion
+        customData["platform"] = platform
+        customData["crashReporterPluginVersion"] = crashReporterPluginVersion
+        customData["isDebugBuild"] = String(isDebugBuild)
+        if let currentOp = currentOperation {
+            customData["currentOperation"] = currentOp
+        }
+        if let lastSuccessOp = lastSuccessfulOperation {
+            customData["lastSuccessfulOperation"] = lastSuccessOp
+        }
+        if let lastFailedOp = lastFailedOperation {
+            customData["lastFailedOperation"] = lastFailedOp
+        }
+        if let lastError = lastOperationError {
+            customData["lastOperationError"] = lastError
+        }
+
+        // Create crash report from marker with full context
         let crashData = CrashData(
             crashId: UUID().uuidString,
             timestamp: Int64(markerData.timestamp * 1000),  // Convert to milliseconds
@@ -118,19 +185,31 @@ public class CrashReporterCore {
             processInfo: collector.getProcessInfo(),
             allThreads: [],  // Thread info unavailable - process crashed
             breadcrumbs: BreadcrumbManager.shared.getBreadcrumbs(),
-            customData: sdkContextJson != nil ? ["sdk_context_json": sdkContextJson!] : CustomDataManager.shared.getCustomData(),
-            environment: CustomDataManager.shared.getEnvironment(),
+            customData: customData,
+            environment: environment ?? CustomDataManager.shared.getEnvironment(),
             cpuRegisters: nil,
             memoryState: nil,
             binaryImages: [],  // Binary images unavailable
             sessionInfo: SessionInfo(sessionId: UUID().uuidString, sessionStartTime: Int64(Date().timeIntervalSince1970 * 1000), sessionDurationMs: 0, isInForeground: false, eventsBeforeCrash: 0, appWasInBackground: true),
             sessionAnalytics: nil,
-            sdk_info: nil,
-            sdk_user_state: nil,
-            unity_info: nil
+            isANR: false,
+            isNativeCrash: true,
+            anrDurationMs: nil,
+            nativeSignal: markerData.getSignalName(),
+            nativeFaultAddress: nil,
+            crashFingerprint: crashFingerprint,
+            severity: "CRITICAL",
+            issueTitle: "Native crash: \(markerData.getSignalName())",
+            memoryWarnings: MemoryWarningTracker.shared.getMemoryWarnings(),
+            networkChanges: NetworkReachabilityTracker.shared.getNetworkChanges(),
+            isInCrashLoop: CrashLoopDetector.shared.isInCrashLoop(),
+            crashLoopCount: CrashLoopDetector.shared.getCrashCount(),
+            sdk_info: sdkInfo,
+            sdk_user_state: sdkUserState,
+            unity_info: unityInfo
         )
 
-        print("📝 [INIT] Saving reconstructed crash from marker - ID: \(crashData.crashId)")
+        print("📝 [INIT] Saving reconstructed crash from marker - ID: \(crashData.crashId), Fingerprint: \(crashFingerprint)")
 
         // Save the reconstructed crash
         storage.saveCrash(crashData)
@@ -140,6 +219,24 @@ public class CrashReporterCore {
         // Delete the marker file
         CrashMarkerHandler.deleteMarkerFile()
         print("✅ [INIT] Marker file deleted")
+    }
+
+    // MARK: - Generate Crash Fingerprint
+
+    private func generateCrashFingerprint(signalName: String) -> String {
+        // Generate SHA256 hash from signal name for deduplication
+        // This groups crashes by signal type for easier analysis
+        let input = "signal_crash_\(signalName)"
+        guard let data = input.data(using: .utf8) else {
+            return "unknown_fingerprint"
+        }
+
+        var hash = [UInt8](repeating: 0, count: Int(CC_SHA256_DIGEST_LENGTH))
+        data.withUnsafeBytes {
+            _ = CC_SHA256($0.baseAddress, CC_LONG(data.count), &hash)
+        }
+
+        return hash.map { String(format: "%02x", $0) }.joined()
     }
 
     // MARK: - Send Pending Crashes
@@ -154,9 +251,15 @@ public class CrashReporterCore {
     }
     
     // MARK: - Check Initialized
-    
+
     public func checkIsInitialized() -> Bool {
         return isInitialized
+    }
+
+    // MARK: - Get Crash Handler (for managed exceptions)
+
+    internal func getCrashHandler() -> CrashHandler? {
+        return crashHandler
     }
     
     // MARK: - Get Pending Crash Count
@@ -252,6 +355,18 @@ public class CrashReporterCore {
             binaryImages: [],
             sessionInfo: SessionInfo(sessionId: UUID().uuidString, sessionStartTime: Int64(Date().timeIntervalSince1970 * 1000), sessionDurationMs: 0, isInForeground: false, eventsBeforeCrash: 0, appWasInBackground: true),
             sessionAnalytics: nil,
+            isANR: false,
+            isNativeCrash: false,
+            anrDurationMs: nil,
+            nativeSignal: nil,
+            nativeFaultAddress: nil,
+            crashFingerprint: nil,
+            severity: "CRITICAL",
+            issueTitle: "Startup crash during initialization",
+            memoryWarnings: MemoryWarningTracker.shared.getMemoryWarnings(),
+            networkChanges: NetworkReachabilityTracker.shared.getNetworkChanges(),
+            isInCrashLoop: CrashLoopDetector.shared.isInCrashLoop(),
+            crashLoopCount: CrashLoopDetector.shared.getCrashCount(),
             sdk_info: nil,
             sdk_user_state: nil,
             unity_info: nil
@@ -308,6 +423,18 @@ public class CrashReporterCore {
             binaryImages: [],
             sessionInfo: SessionInfo(sessionId: UUID().uuidString, sessionStartTime: Int64(Date().timeIntervalSince1970 * 1000), sessionDurationMs: 0, isInForeground: false, eventsBeforeCrash: 0, appWasInBackground: true),
             sessionAnalytics: nil,
+            isANR: true,
+            isNativeCrash: false,
+            anrDurationMs: Int(watchdogCrash.timeSinceLastHeartbeat),
+            nativeSignal: nil,
+            nativeFaultAddress: nil,
+            crashFingerprint: nil,
+            severity: "HIGH",
+            issueTitle: "Watchdog timeout (main thread blocked)",
+            memoryWarnings: MemoryWarningTracker.shared.getMemoryWarnings(),
+            networkChanges: NetworkReachabilityTracker.shared.getNetworkChanges(),
+            isInCrashLoop: CrashLoopDetector.shared.isInCrashLoop(),
+            crashLoopCount: CrashLoopDetector.shared.getCrashCount(),
             sdk_info: nil,
             sdk_user_state: nil,
             unity_info: nil

@@ -130,6 +130,111 @@ public func CrashReporter_ClearAllCrashes() {
     CrashReporterCore.shared.clearAllCrashes()
 }
 
+// MARK: - Operation Tracking (New)
+
+@_cdecl("CrashReporter_SetCurrentOperation")
+public func CrashReporter_SetCurrentOperation(_ operation: UnsafePointer<CChar>?) {
+    let operationStr = operation != nil ? String(cString: operation!) : nil
+    OperationTracker.shared.setCurrentOperation(operationStr)
+}
+
+@_cdecl("CrashReporter_GetCurrentOperation")
+public func CrashReporter_GetCurrentOperation() -> UnsafePointer<CChar>? {
+    guard let operation = OperationTracker.shared.getCurrentOperation() else { return nil }
+    return UnsafePointer((operation as NSString).utf8String)
+}
+
+@_cdecl("CrashReporter_SetLastSuccessfulOperation")
+public func CrashReporter_SetLastSuccessfulOperation(_ operation: UnsafePointer<CChar>) {
+    guard operation != nil else { return }
+    let operationStr = String(cString: operation)
+    OperationTracker.shared.setLastSuccessfulOperation(operationStr)
+}
+
+@_cdecl("CrashReporter_GetLastSuccessfulOperation")
+public func CrashReporter_GetLastSuccessfulOperation() -> UnsafePointer<CChar>? {
+    guard let operation = OperationTracker.shared.getLastSuccessfulOperation() else { return nil }
+    return UnsafePointer((operation as NSString).utf8String)
+}
+
+@_cdecl("CrashReporter_SetLastFailedOperation")
+public func CrashReporter_SetLastFailedOperation(_ operation: UnsafePointer<CChar>, _ reason: UnsafePointer<CChar>) {
+    guard operation != nil, reason != nil else { return }
+    let operationStr = String(cString: operation)
+    let reasonStr = String(cString: reason)
+    OperationTracker.shared.setLastFailedOperation(operationStr, reason: reasonStr)
+}
+
+@_cdecl("CrashReporter_GetLastFailedOperation")
+public func CrashReporter_GetLastFailedOperation() -> UnsafePointer<CChar>? {
+    guard let operation = OperationTracker.shared.getLastFailedOperation() else { return nil }
+    return UnsafePointer((operation as NSString).utf8String)
+}
+
+@_cdecl("CrashReporter_GetLastFailureReason")
+public func CrashReporter_GetLastFailureReason() -> UnsafePointer<CChar>? {
+    guard let reason = OperationTracker.shared.getLastFailureReason() else { return nil }
+    return UnsafePointer((reason as NSString).utf8String)
+}
+
+@_cdecl("CrashReporter_SetSDKVersion")
+public func CrashReporter_SetSDKVersion(_ version: UnsafePointer<CChar>) {
+    guard version != nil else { return }
+    let versionStr = String(cString: version)
+    OperationTracker.shared.setSDKVersion(versionStr)
+}
+
+@_cdecl("CrashReporter_SetInitFailurePoint")
+public func CrashReporter_SetInitFailurePoint(_ failurePoint: UnsafePointer<CChar>) {
+    guard failurePoint != nil else { return }
+    let failureStr = String(cString: failurePoint)
+    OperationTracker.shared.setInitFailurePoint(failureStr)
+}
+
+@_cdecl("CrashReporter_SetResponsibleComponent")
+public func CrashReporter_SetResponsibleComponent(_ component: UnsafePointer<CChar>) {
+    guard component != nil else { return }
+    let componentStr = String(cString: component)
+    OperationTracker.shared.setResponsibleComponent(componentStr)
+}
+
+// MARK: - Managed Exception Handler (C# Exceptions)
+
+/// Handle managed C# exceptions immediately (like Android)
+/// Called from Unity when C# exceptions occur
+@_cdecl("CrashReporter_HandleManagedException")
+public func CrashReporter_HandleManagedException(
+    _ exceptionType: UnsafePointer<CChar>,
+    _ exceptionMessage: UnsafePointer<CChar>,
+    _ stackTrace: UnsafePointer<CChar>,
+    _ isFatal: Bool
+) {
+    guard exceptionType != nil, exceptionMessage != nil, stackTrace != nil else {
+        print("❌ CrashReporter_HandleManagedException: Null pointer for exception data")
+        return
+    }
+
+    let exceptionTypeStr = String(cString: exceptionType)
+    let exceptionMessageStr = String(cString: exceptionMessage)
+    let stackTraceStr = String(cString: stackTrace)
+
+    print("🔴 [MANAGED_EXCEPTION] Handling C# exception: \(exceptionTypeStr) - \(exceptionMessageStr)")
+
+    // Get crash handler from shared instance
+    guard let crashHandler = CrashReporterCore.shared.getCrashHandler() else {
+        print("❌ [MANAGED_EXCEPTION] Crash handler not available")
+        return
+    }
+
+    // Handle the managed exception
+    crashHandler.handleManagedException(
+        exceptionType: exceptionTypeStr,
+        exceptionMessage: exceptionMessageStr,
+        stackTrace: stackTraceStr,
+        isFatal: isFatal
+    )
+}
+
 // MARK: - Native Crash Trigger (Testing Only)
 
 @_cdecl("TriggerSignalCrash")

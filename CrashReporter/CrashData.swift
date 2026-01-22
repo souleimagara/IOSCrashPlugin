@@ -27,6 +27,24 @@ struct CrashData: Codable {
     let sessionInfo: SessionInfo  // Session tracking for dashboards
     let sessionAnalytics: SessionAnalytics?  // Tier 2: Performance metrics and analytics events
 
+    // MARK: - Crash Classification Fields (for parity with Android)
+    let isANR: Bool  // Whether crash is Application Not Responding
+    let isNativeCrash: Bool  // Whether crash is from native signal
+    let anrDurationMs: Int?  // Duration of ANR if isANR=true
+    let nativeSignal: String?  // Signal name if isNativeCrash=true (e.g., "SIGABRT (6)")
+    let nativeFaultAddress: String?  // Memory address of fault if isNativeCrash=true
+
+    // MARK: - Crash Deduplication & Grouping
+    let crashFingerprint: String?  // SHA256 hash of first 5 stack frames (for dedup)
+    let severity: String  // CRITICAL, HIGH, MEDIUM, LOW
+    let issueTitle: String  // Human-readable title (e.g., "SIGSEGV at libunity.so")
+
+    // MARK: - Tracking Fields
+    let memoryWarnings: [MemoryWarningTracker.MemoryWarning]?  // Recent memory warnings
+    let networkChanges: [NetworkReachabilityTracker.NetworkChange]?  // Recent network changes
+    let isInCrashLoop: Bool  // Whether in crash loop (3+ crashes in 60s)
+    let crashLoopCount: Int  // Number of crashes in current loop window
+
     // MARK: - SDK & Unity Context
     let sdk_info: SDKInfo?  // SDK-specific state (operations, API calls, config)
     let sdk_user_state: SDKUserState?  // SDK user-specific state (login, pending ops)

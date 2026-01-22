@@ -78,6 +78,37 @@ class SDKUserStateManager {
         )
     }
 
+    // MARK: - Export to Dictionary
+
+    /// Convert user state to dictionary for persistence
+    func toDict() -> [String: Any]? {
+        guard let state = getUserState() else { return nil }
+
+        var dict: [String: Any] = [
+            "user_logged_in": state.user_logged_in,
+            "pending_operations": state.pending_operations,
+            "rewards_available": state.rewards_available
+        ]
+
+        if let userId = state.user_id_hashed {
+            dict["user_id_hashed"] = userId
+        }
+        if let cacheStatus = state.cache_status {
+            dict["cache_status"] = cacheStatus
+        }
+        if let lastSync = state.last_sync_time {
+            dict["last_sync_time"] = lastSync
+        }
+        if let balance = state.balance_sats {
+            dict["balance_sats"] = balance
+        }
+        if let status = state.user_status {
+            dict["user_status"] = status
+        }
+
+        return dict
+    }
+
     // MARK: - Reset (for testing)
 
     func reset() {

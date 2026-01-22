@@ -78,6 +78,35 @@ class UnityInfoManager {
         )
     }
 
+    // MARK: - Export to Dictionary
+
+    /// Convert Unity info to dictionary for persistence
+    func toDict() -> [String: Any]? {
+        guard let info = getUnityInfo() else { return nil }
+
+        var dict: [String: Any] = [
+            "unity_version": info.unity_version,
+            "scripting_backend": info.scripting_backend,
+            "graphics_api": info.graphics_api,
+            "platform": info.platform
+        ]
+
+        if let renderingPath = info.rendering_path {
+            dict["rendering_path"] = renderingPath
+        }
+        if let qualityLevel = info.quality_level {
+            dict["quality_level"] = qualityLevel
+        }
+        if let vsync = info.vsync_count {
+            dict["vsync_count"] = vsync
+        }
+        if let framerate = info.target_framerate {
+            dict["target_framerate"] = framerate
+        }
+
+        return dict
+    }
+
     // MARK: - Reset (for testing)
 
     func reset() {
