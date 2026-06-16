@@ -10,7 +10,12 @@ public class CrashReporterCore {
     private var crashStorage: CrashStorage?
     private var crashSender: CrashSender?
     private var deviceInfoCollector: DeviceInfoCollector?
-    
+
+    // When true, native only STORES crashes — the host (Unity C#) pulls them via
+    // getPendingCrashesAsJson(), signs each with the attestation key, and sends them itself
+    // (events.zbd.lol + New Relic + webhook). Default false keeps the legacy native auto-send.
+    private var deferSendToHost = false
+
     private init() {}
     
     // MARK: - Initialize
@@ -264,12 +269,47 @@ public class CrashReporterCore {
     // MARK: - Send Pending Crashes
 
     private func sendPendingCrashes() {
+        if deferSendToHost {
+            CrashReporterLogger.info("Pending crashes left for host to sign + send", log: CrashReporterLogger.general)
+            return
+        }
         guard let sender = crashSender else { return }
         sender.sendAllPendingCrashes()
     }
-    
+
     public func sendPendingCrashesNow() {
         sendPendingCrashes()
+    }
+
+    // MARK: - Host-driven signed send
+
+    /// Host opts in to driving the send itself. Native then only stores crashes.
+    public func setDeferSendToHost(_ enabled: Bool) {
+        deferSendToHost = enabled
+        CrashReporterLogger.info("deferSendToHost = \(enabled) (host drives signed send)", log: CrashReporterLogger.general)
+    }
+
+    /// Return all pending (stored, unsent) crashes as a JSON wrapper the host can parse:
+    ///   {"crashes":[{"crashId":"<id>","json":"<flattened crash payload>"}, ...]}
+    public func getPendingCrashesAsJson() -> String {
+        guard let storage = crashStorage, let sender = crashSender else { return "{\"crashes\":[]}" }
+        var entries: [[String: String]] = []
+        for (fileURL, _) in storage.getPendingCrashFiles() {
+            guard let crashData = storage.loadCrash(from: fileURL),
+                  let payload = sender.buildPayloadJson(crashData) else { continue }
+            entries.append(["crashId": crashData.crashId, "json": payload])
+        }
+        let wrapper: [String: Any] = ["crashes": entries]
+        if let data = try? JSONSerialization.data(withJSONObject: wrapper, options: []),
+           let str = String(data: data, encoding: .utf8) {
+            return str
+        }
+        return "{\"crashes\":[]}"
+    }
+
+    /// Host confirms a crash was delivered — remove it from pending storage.
+    public func markCrashAsSent(_ crashId: String) {
+        crashStorage?.deleteCrashById(crashId: crashId)
     }
     
     // MARK: - Check Initialized

@@ -118,14 +118,8 @@ class CrashSender {
     // MARK: - Send Single Crash
 
     private func sendCrash(_ crashData: CrashData, metadata: CrashMetadata, fileURL: URL, completion: @escaping (Bool, String?) -> Void) {
-        let urlString: String
-        if apiEndpoint.hasSuffix("/") {
-            urlString = "\(apiEndpoint)api/crashes"
-        } else {
-            urlString = "\(apiEndpoint)/api/crashes"
-        }
-
-        guard let url = URL(string: urlString) else {
+        // Use the endpoint directly — New Relic provides the full ingest URL
+        guard let url = URL(string: apiEndpoint) else {
             let errorMsg = "Invalid API endpoint URL"
             CrashReporterLogger.error("\(errorMsg)", log: CrashReporterLogger.crashSender)
             completion(false, errorMsg)
@@ -134,17 +128,27 @@ class CrashSender {
 
         do {
             let encoder = JSONEncoder()
-            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]  // Pretty print for readability
-            let jsonData = try encoder.encode(crashData)
+            encoder.outputFormatting = [.sortedKeys]
 
-            // Send uncompressed JSON for readability
+            // New Relic Events API requires a JSON array with an eventType field.
+            // We wrap the crash data in a dictionary, inject eventType, then array-wrap it.
+            let crashDict = try JSONSerialization.jsonObject(
+                with: encoder.encode(crashData), options: []) as? [String: Any] ?? [:]
+            var event = crashDict
+            event["eventType"] = "ZBDCrashReport"  // Required by New Relic NRQL
+            event["gameId"] = crashData.appInfo.bundleId  // Per-studio filtering
+
+            let jsonData = try JSONSerialization.data(withJSONObject: [event], options: [])
+
             let jsonSize = Double(jsonData.count) / 1024.0
-            CrashReporterLogger.info("Sending crash (uncompressed: \(String(format: "%.1f", jsonSize))KB)", log: CrashReporterLogger.crashSender)
+            CrashReporterLogger.info("Sending crash to New Relic (\(String(format: "%.1f", jsonSize))KB)", log: CrashReporterLogger.crashSender)
 
             var request = URLRequest(url: url)
             request.httpMethod = "POST"
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             request.setValue("CrashReporter-iOS/1.0", forHTTPHeaderField: "User-Agent")
+            // New Relic ingest key — for testing only
+            request.setValue("eu01xe5d8f90a9ecc28b6963c670d8091beeNRAL", forHTTPHeaderField: "Api-Key")
 
             request.httpBody = jsonData
 
@@ -201,6 +205,27 @@ class CrashSender {
         }
     }
 
+    // MARK: - Build Payload (for host-driven signed send)
+
+    /// Build the flattened crash payload as a single JSON object string — the EXACT bytes the
+    /// host (Unity C#) signs and POSTs. Mirrors the New Relic event the native sender would build.
+    func buildPayloadJson(_ crashData: CrashData) -> String? {
+        do {
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.sortedKeys]
+            let crashDict = try JSONSerialization.jsonObject(
+                with: encoder.encode(crashData), options: []) as? [String: Any] ?? [:]
+            var event = crashDict
+            event["eventType"] = "ZBDCrashReport"
+            event["gameId"] = crashData.appInfo.bundleId
+            let data = try JSONSerialization.data(withJSONObject: event, options: [])
+            return String(data: data, encoding: .utf8)
+        } catch {
+            CrashReporterLogger.error("buildPayloadJson failed: \(error.localizedDescription)", log: CrashReporterLogger.crashSender)
+            return nil
+        }
+    }
+
     // MARK: - Send All Pending Crashes (With Queue Management)
 
     func sendAllPendingCrashes() {
@@ -218,7 +243,10 @@ class CrashSender {
         }
 
         isSending = true
-        defer { isSending = false }  // Guarantees isSending is reset even if error occurs
+        // NOTE: Do NOT use defer to reset isSending here. The actual send work is async
+        // (URLSession callbacks + dispatchGroup), so a defer would reset the flag before
+        // any network calls complete, defeating the concurrency guard entirely.
+        // isSending is reset inside the dispatchGroup.notify block below.
 
         // Check network connectivity before attempting to send
         print("🔍 [SEND] Checking network availability...")
@@ -299,10 +327,14 @@ class CrashSender {
             }
         }
 
-        // Wait for all sends to complete
+        // Wait for all sends to complete, then reset isSending
         dispatchGroup.notify(queue: .main) { [weak self] in
             CrashReporterLogger.info("Finished processing crashes - Success: \(successCount), Failed: \(failedCount)", log: CrashReporterLogger.crashSender)
-            // isSending is already reset via defer statement
+
+            // Reset concurrency guard only after all async work is truly done
+            self?.senderLock.lock()
+            self?.isSending = false
+            self?.senderLock.unlock()
 
             // Perform cleanup after sending
             self?.crashStorage.performCleanup()

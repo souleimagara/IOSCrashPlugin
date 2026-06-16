@@ -28,6 +28,25 @@ public func CrashReporter_SendPendingCrashes() {
     CrashReporterCore.shared.sendPendingCrashesNow()
 }
 
+// MARK: - Host-driven signed send (Unity C# pulls, signs with the attestation key, sends)
+
+@_cdecl("CrashReporter_SetDeferSendToHost")
+public func CrashReporter_SetDeferSendToHost(_ enabled: Bool) {
+    CrashReporterCore.shared.setDeferSendToHost(enabled)
+}
+
+@_cdecl("CrashReporter_GetPendingCrashesAsJson")
+public func CrashReporter_GetPendingCrashesAsJson() -> UnsafePointer<CChar>? {
+    let json = CrashReporterCore.shared.getPendingCrashesAsJson()
+    return UnsafePointer((json as NSString).utf8String)
+}
+
+@_cdecl("CrashReporter_MarkCrashAsSent")
+public func CrashReporter_MarkCrashAsSent(_ crashId: UnsafePointer<CChar>?) {
+    guard let crashId = crashId else { return }
+    CrashReporterCore.shared.markCrashAsSent(String(cString: crashId))
+}
+
 @_cdecl("CrashReporter_SetUserContext")
 public func CrashReporter_SetUserContext(
     _ userId: UnsafePointer<CChar>?,

@@ -62,7 +62,10 @@ class SDKContextStorage {
         context["lastSuccessfulOperation"] = OperationTracker.shared.getLastSuccessfulOperation() ?? "none"
         context["lastFailedOperation"] = OperationTracker.shared.getLastFailedOperation() ?? "none"
         context["lastOperationError"] = OperationTracker.shared.getLastFailureReason() ?? "none"
-        context["sdkVersion"] = OperationTracker.shared.getSDKVersion() ?? "unknown"
+        // getSDKVersion() returns "" (empty string) not nil, so ?? "unknown" never triggers.
+        // Use explicit empty-string check instead.
+        let sdkVer = OperationTracker.shared.getSDKVersion()
+        context["sdkVersion"] = sdkVer.isEmpty ? "unknown" : sdkVer
 
         // Add metadata
         context["platform"] = "iOS"

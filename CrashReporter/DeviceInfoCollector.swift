@@ -1,6 +1,8 @@
 import Foundation
 import UIKit
 import SystemConfiguration
+import CFNetwork
+import Darwin
 
 class DeviceInfoCollector {
     
@@ -63,8 +65,8 @@ class DeviceInfoCollector {
             totalMemoryMB: memoryInfo.total,
             availableStorageMB: storageInfo.available,
             totalStorageMB: storageInfo.total,
-            lowMemory: memoryInfo.available < 100, // Less than 100MB
-            thermalState: "",
+            lowMemory: memoryInfo.available < 100,
+            thermalState: getThermalState(),
             screenOn: UIApplication.shared.applicationState == .active,
             orientation: getOrientation()
         )
@@ -290,6 +292,87 @@ class DeviceInfoCollector {
         return identifier
     }
     
+    // MARK: - Android Parity Collection Methods
+
+    func getThermalState() -> String {
+        switch Foundation.ProcessInfo.processInfo.thermalState {
+        case .nominal:  return "nominal"
+        case .fair:     return "fair"
+        case .serious:  return "serious"
+        case .critical: return "critical"
+        @unknown default: return "unknown"
+        }
+    }
+
+    func isPowerSaveMode() -> Bool {
+        return Foundation.ProcessInfo.processInfo.isLowPowerModeEnabled
+    }
+
+    func isDebugBuild() -> Bool {
+        #if DEBUG
+        return true
+        #else
+        return false
+        #endif
+    }
+
+    func getBootTime() -> Int64 {
+        var tv = timeval()
+        var size = MemoryLayout<timeval>.stride
+        sysctlbyname("kern.boottime", &tv, &size, nil, 0)
+        return Int64(tv.tv_sec) * 1000 + Int64(tv.tv_usec) / 1000
+    }
+
+    func getDeviceUptime() -> Int64 {
+        return Int64(Foundation.ProcessInfo.processInfo.systemUptime * 1000)
+    }
+
+    func getTimezone() -> String {
+        return TimeZone.current.identifier
+    }
+
+    func isVPNActive() -> Bool {
+        var ifaddr: UnsafeMutablePointer<ifaddrs>?
+        guard getifaddrs(&ifaddr) == 0 else { return false }
+        defer { freeifaddrs(ifaddr) }
+        var current = ifaddr
+        while let addr = current {
+            let name = String(cString: addr.pointee.ifa_name)
+            if name.hasPrefix("utun") { return true }
+            current = addr.pointee.ifa_next
+        }
+        return false
+    }
+
+    func isProxyActive() -> Bool {
+        guard let settings = CFNetworkCopySystemProxySettings()?.takeRetainedValue() as? [String: Any] else {
+            return false
+        }
+        let httpEnabled = settings[kCFNetworkProxiesHTTPEnable as String] as? Int
+        let httpProxy = settings[kCFNetworkProxiesHTTPProxy as String] as? String
+        return (httpEnabled == 1) || !(httpProxy?.isEmpty ?? true)
+    }
+
+    func getMemoryPressure() -> String {
+        let total = Foundation.ProcessInfo.processInfo.physicalMemory
+        var info = mach_task_basic_info()
+        var count = mach_msg_type_number_t(MemoryLayout<mach_task_basic_info>.size) / 4
+        withUnsafeMutablePointer(to: &info) {
+            $0.withMemoryRebound(to: integer_t.self, capacity: 1) {
+                _ = task_info(mach_task_self_, task_flavor_t(MACH_TASK_BASIC_INFO), $0, &count)
+            }
+        }
+        let used = Int64(info.resident_size)
+        let available = Int64(total) - used
+        let percentAvailable = Double(available) / Double(total) * 100
+        switch percentAvailable {
+        case ..<10: return "CRITICAL"
+        case ..<20: return "HIGH"
+        case ..<40: return "MODERATE"
+        default:    return "LOW"
+        }
+    }
+
     private func getCPUUsage() -> Float {
         var totalUsageOfCPU: Double = 0.0
         var threadsList: thread_act_array_t?
