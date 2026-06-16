@@ -49,6 +49,28 @@ struct CrashData: Codable {
     let sdk_info: SDKInfo?  // SDK-specific state (operations, API calls, config)
     let sdk_user_state: SDKUserState?  // SDK user-specific state (login, pending ops)
     let unity_info: UnityInfo?  // Unity engine info (version, backend, graphics)
+
+    // MARK: - Android Parity Fields (SLO & Device Context)
+    let isSDKRelated: Bool                   // Is crash related to ZBD SDK code (weak hint — see sdkConfidence)
+    let sdkConfidence: String?               // Attribution confidence: high | medium | low | none
+    let faultingLibrary: String?             // Native image where crash occurred (e.g. "libil2cpp.so"); nil/"" for managed
+    let responsibleSDKComponent: String      // Which SDK component caused crash
+    let sdkVersion: String                   // ZBD SDK version
+    let crashReporterPluginVersion: String   // Crash reporter plugin version
+    let platform: String                     // Platform identifier
+    let initFailurePoint: String             // Where in SDK init crash occurred
+    let currentOperation: String             // What SDK operation was running at crash time
+    let operationContext: [String: String]   // Additional context about the operation
+    let powerSaveMode: Bool                  // Is device in low power mode
+    let isDebugBuild: Bool                   // Is this a debug build
+    let bootTime: Int64                      // Device boot time (ms since epoch)
+    let deviceUptime: Int64                  // Device uptime (ms since boot)
+    let timezone: String                     // Device timezone identifier
+    let isVPNActive: Bool                    // Is VPN active
+    let isProxyActive: Bool                  // Is HTTP proxy active
+    let memoryPressure: String               // CRITICAL, HIGH, MODERATE, LOW
+    let wasNetworkRecentlyLost: Bool         // Was network lost in last 30s
+    let isStartupCrash: Bool                 // Did crash occur during app startup
 }
 
 // MARK: - Device Info

@@ -201,11 +201,62 @@ class OperationTracker {
         operationContext.removeAll()
     }
 
+    /// Extract the faulting library/image from a crash stack trace.
+    /// Apple backtrace frames look like: "2   libil2cpp.so   0x0000.. symbol + 12".
+    /// Skips our own crash-reporter frames and system frames to find the first frame
+    /// that represents the actual faulting code. Returns "" for managed/empty stacks.
+    func extractFaultingLibrary(_ stackTrace: String) -> String {
+        // Our handler + system libs sit on top of the stack — skip them all so we report
+        // the first *app* image where the crash actually originated (UnityFramework = engine,
+        // the game's own binary, etc.).
+        let skip = ["CrashReporter", "libsystem", "libc++", "libdyld", "libobjc", "dyld", "???"]
+        for rawLine in stackTrace.split(separator: "\n") {
+            let trimmed = rawLine.trimmingCharacters(in: .whitespaces)
+            let cols = trimmed.split(separator: " ", omittingEmptySubsequences: true)
+            // Standard frame: "<index> <image> <address> <symbol...>"
+            guard cols.count >= 2, Int(cols[0]) != nil else { continue }
+            let image = String(cols[1])
+            if skip.contains(where: { image.contains($0) }) { continue }
+            return image
+        }
+        return ""
+    }
+
+    /// Compute confidence that this crash was caused by ZBD SDK code.
+    ///  - "high":   a real ZBD symbol is present in the stack (debug/unstripped builds)
+    ///  - "medium": a ZBD operation was ACTIVELY in-flight when the crash happened
+    ///  - "low":    a ZBD operation had recently failed but already ended — weak/coincidental
+    ///  - "none":   no ZBD signal — most likely game or engine code
+    ///
+    /// IMPORTANT: in IL2CPP release builds, ZBD C# and game C# share the same stripped
+    /// image, so "high" is NOT reachable for managed crashes on-device. Trustworthy
+    /// ZBD-vs-game attribution there needs backend symbolication. Treat medium/low as hints.
+    func getSDKConfidence(_ stackTrace: String, _ faultingLibrary: String) -> String {
+        let strongPatterns = [
+            "com.zbd.", "ZBD.", "ZBDSDK", "ZBDUserController", "ZBDSignUpController",
+            "ZBDSendRewardController", "ZBDCrashReporter", "ZBDAndroidCrashBridge",
+            "crashreporter.library"
+        ]
+        if strongPatterns.contains(where: { stackTrace.contains($0) }) { return "high" }
+        if let op = currentOperation, !op.isEmpty, op.lowercased() != "none" { return "medium" }
+        if let op = lastFailedOperation, !op.isEmpty, op.lowercased() != "none" { return "low" }
+        return "none"
+    }
+
     /// Check if crash is related to ZBD SDK based on stack trace analysis
     func isSDKRelatedCrash(_ stackTrace: String) -> Bool {
+        // If an SDK operation was active at crash time, it's SDK-related
+        // (matches Android behavior — stack trace patterns alone don't work for IL2CPP release builds)
+        // Guard against "none" sentinel value stored when no operation is active
+        if let op = currentOperation, !op.isEmpty && op.lowercased() != "none" { return true }
+        if let op = lastFailedOperation, !op.isEmpty && op.lowercased() != "none" { return true }
+
+        // Fallback: check stack trace patterns (works for debug builds).
+        // Use "ZBD." (the C# namespace prefix), NOT bare "ZBD" — the app's bundle/package
+        // path can appear in stacks and a bare "ZBD" would falsely match it.
         let sdkPatterns = [
             "com.zbd.",
-            "ZBD",
+            "ZBD.",
             "ZBDSDK",
             "ZBDUserController",
             "ZBDSignUpController",
@@ -219,6 +270,7 @@ class OperationTracker {
 
     /// Determine which SDK component is responsible based on stack trace
     func determineResponsibleComponent(_ stackTrace: String) -> String {
+        // First try stack trace patterns (works for debug builds)
         if stackTrace.contains("ZBDUserController") {
             return "ZBDUserController"
         } else if stackTrace.contains("ZBDSignUpController") {
@@ -231,10 +283,15 @@ class OperationTracker {
             return "ZBDAndroidCrashBridge"
         } else if stackTrace.contains("crashreporter.library") {
             return "CrashReporterLibrary"
-        } else if stackTrace.contains("ZBD") {
+        } else if stackTrace.contains("ZBD.") {  // "ZBD." namespace, not bare "ZBD"
             return "ZBD_Unknown"
-        } else {
-            return ""
         }
+
+        // Fallback: use active operation name (matches Android behavior for IL2CPP builds)
+        // Guard against "none" sentinel value stored when no operation is active
+        if let op = currentOperation, !op.isEmpty && op.lowercased() != "none" { return "SDK_\(op)" }
+        if let op = lastFailedOperation, !op.isEmpty && op.lowercased() != "none" { return "SDK_\(op)" }
+
+        return ""
     }
 }

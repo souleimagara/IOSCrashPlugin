@@ -2,9 +2,14 @@ import Foundation
 import UIKit
 import MachO
 
-// External C signal handler (implemented in CrashReporterC.c)
-@_silgen_name("CrashReporter_SignalHandler")
-func CrashReporter_SignalHandler(_ signal: Int32) -> Void
+// Signal handler implemented directly in Swift using @_cdecl so it has a C-compatible symbol.
+// Only async-signal-safe operations (CrashMarkerHandler uses raw syscalls only).
+@_cdecl("CrashReporter_SignalHandler")
+func CrashReporter_SignalHandler(_ signal: Int32) {
+    CrashMarkerHandler.writeMarkerFile(signalNumber: signal)
+    Darwin.signal(signal, SIG_DFL)
+    Darwin.raise(signal)
+}
 
 class CrashHandler {
     private let crashStorage: CrashStorage
@@ -179,7 +184,27 @@ class CrashHandler {
             crashLoopCount: crashLoopCount,
             sdk_info: SDKInfoManager.shared.getSDKInfo() ?? SDKInfoManager.shared.createDefaultSDKInfo(),
             sdk_user_state: SDKUserStateManager.shared.getUserState() ?? SDKUserStateManager.shared.createDefaultUserState(),
-            unity_info: UnityInfoManager.shared.getUnityInfo() ?? UnityInfoManager.shared.createDefaultUnityInfo()
+            unity_info: UnityInfoManager.shared.getUnityInfo() ?? UnityInfoManager.shared.createDefaultUnityInfo(),
+            isSDKRelated: OperationTracker.shared.isSDKRelatedCrash(stackTrace),
+            sdkConfidence: OperationTracker.shared.getSDKConfidence(stackTrace, OperationTracker.shared.extractFaultingLibrary(stackTrace)),
+            faultingLibrary: OperationTracker.shared.extractFaultingLibrary(stackTrace),
+            responsibleSDKComponent: OperationTracker.shared.determineResponsibleComponent(stackTrace),
+            sdkVersion: OperationTracker.shared.sdkVersion,
+            crashReporterPluginVersion: OperationTracker.shared.crashReporterPluginVersion,
+            platform: OperationTracker.shared.platform,
+            initFailurePoint: OperationTracker.shared.initFailurePoint,
+            currentOperation: OperationTracker.shared.currentOperation ?? "",
+            operationContext: OperationTracker.shared.operationContext,
+            powerSaveMode: deviceInfoCollector.isPowerSaveMode(),
+            isDebugBuild: deviceInfoCollector.isDebugBuild(),
+            bootTime: deviceInfoCollector.getBootTime(),
+            deviceUptime: deviceInfoCollector.getDeviceUptime(),
+            timezone: deviceInfoCollector.getTimezone(),
+            isVPNActive: deviceInfoCollector.isVPNActive(),
+            isProxyActive: deviceInfoCollector.isProxyActive(),
+            memoryPressure: deviceInfoCollector.getMemoryPressure(),
+            wasNetworkRecentlyLost: NetworkReachabilityTracker.shared.wasNetworkRecentlyLost(),
+            isStartupCrash: false
         )
     }
 
@@ -380,7 +405,27 @@ class CrashHandler {
             crashLoopCount: crashLoopCount,
             sdk_info: sdkInfo,
             sdk_user_state: sdkUserState,
-            unity_info: unityInfo
+            unity_info: unityInfo,
+            isSDKRelated: OperationTracker.shared.isSDKRelatedCrash(stackTrace),
+            sdkConfidence: OperationTracker.shared.getSDKConfidence(stackTrace, OperationTracker.shared.extractFaultingLibrary(stackTrace)),
+            faultingLibrary: OperationTracker.shared.extractFaultingLibrary(stackTrace),
+            responsibleSDKComponent: OperationTracker.shared.determineResponsibleComponent(stackTrace),
+            sdkVersion: OperationTracker.shared.sdkVersion,
+            crashReporterPluginVersion: OperationTracker.shared.crashReporterPluginVersion,
+            platform: OperationTracker.shared.platform,
+            initFailurePoint: OperationTracker.shared.initFailurePoint,
+            currentOperation: OperationTracker.shared.currentOperation ?? "",
+            operationContext: OperationTracker.shared.operationContext,
+            powerSaveMode: deviceInfoCollector.isPowerSaveMode(),
+            isDebugBuild: deviceInfoCollector.isDebugBuild(),
+            bootTime: deviceInfoCollector.getBootTime(),
+            deviceUptime: deviceInfoCollector.getDeviceUptime(),
+            timezone: deviceInfoCollector.getTimezone(),
+            isVPNActive: deviceInfoCollector.isVPNActive(),
+            isProxyActive: deviceInfoCollector.isProxyActive(),
+            memoryPressure: deviceInfoCollector.getMemoryPressure(),
+            wasNetworkRecentlyLost: NetworkReachabilityTracker.shared.wasNetworkRecentlyLost(),
+            isStartupCrash: false
         )
 
         // Save crash
@@ -496,7 +541,27 @@ class CrashHandler {
             crashLoopCount: crashLoopCount,
             sdk_info: SDKInfoManager.shared.getSDKInfo() ?? SDKInfoManager.shared.createDefaultSDKInfo(),
             sdk_user_state: SDKUserStateManager.shared.getUserState() ?? SDKUserStateManager.shared.createDefaultUserState(),
-            unity_info: UnityInfoManager.shared.getUnityInfo() ?? UnityInfoManager.shared.createDefaultUnityInfo()
+            unity_info: UnityInfoManager.shared.getUnityInfo() ?? UnityInfoManager.shared.createDefaultUnityInfo(),
+            isSDKRelated: OperationTracker.shared.isSDKRelatedCrash(stackTrace),
+            sdkConfidence: OperationTracker.shared.getSDKConfidence(stackTrace, OperationTracker.shared.extractFaultingLibrary(stackTrace)),
+            faultingLibrary: OperationTracker.shared.extractFaultingLibrary(stackTrace),
+            responsibleSDKComponent: OperationTracker.shared.determineResponsibleComponent(stackTrace),
+            sdkVersion: OperationTracker.shared.sdkVersion,
+            crashReporterPluginVersion: OperationTracker.shared.crashReporterPluginVersion,
+            platform: OperationTracker.shared.platform,
+            initFailurePoint: OperationTracker.shared.initFailurePoint,
+            currentOperation: OperationTracker.shared.currentOperation ?? "",
+            operationContext: OperationTracker.shared.operationContext,
+            powerSaveMode: deviceInfoCollector.isPowerSaveMode(),
+            isDebugBuild: deviceInfoCollector.isDebugBuild(),
+            bootTime: deviceInfoCollector.getBootTime(),
+            deviceUptime: deviceInfoCollector.getDeviceUptime(),
+            timezone: deviceInfoCollector.getTimezone(),
+            isVPNActive: deviceInfoCollector.isVPNActive(),
+            isProxyActive: deviceInfoCollector.isProxyActive(),
+            memoryPressure: deviceInfoCollector.getMemoryPressure(),
+            wasNetworkRecentlyLost: NetworkReachabilityTracker.shared.wasNetworkRecentlyLost(),
+            isStartupCrash: false
         )
     }
 
@@ -664,8 +729,10 @@ class CrashHandler {
             threadName = "main"
         }
 
-        // Get stack trace (simplified - in a real crash handler this would be more complex)
-        let stackTrace = Thread.callStackSymbols.joined(separator: "\n")
+        // Thread.callStackSymbols returns the CALLING thread's stack, not the target thread's.
+        // Capturing another thread's real stack requires Mach backtrace APIs per-thread,
+        // which is complex and out of scope here. Mark it honestly so the field isn't misleading.
+        let stackTrace = "(Stack trace unavailable for non-crashed threads)"
 
         return ThreadInfo(
             id: UInt64(thread),

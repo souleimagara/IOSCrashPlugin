@@ -206,7 +206,29 @@ public class CrashReporterCore {
             crashLoopCount: CrashLoopDetector.shared.getCrashCount(),
             sdk_info: sdkInfo,
             sdk_user_state: sdkUserState,
-            unity_info: unityInfo
+            unity_info: unityInfo,
+            isSDKRelated: (currentOperation != nil && !currentOperation!.isEmpty && currentOperation!.lowercased() != "none") || OperationTracker.shared.isSDKRelatedCrash(""),
+            sdkConfidence: (currentOperation != nil && !currentOperation!.isEmpty && currentOperation!.lowercased() != "none") ? "medium" : OperationTracker.shared.getSDKConfidence("", ""),
+            faultingLibrary: nil,
+            responsibleSDKComponent: !OperationTracker.shared.responsibleComponent.isEmpty
+                ? OperationTracker.shared.responsibleComponent
+                : (currentOperation != nil && !currentOperation!.isEmpty && currentOperation!.lowercased() != "none" ? "SDK_\(currentOperation!)" : ""),
+            sdkVersion: sdkVersion == "unknown" ? "" : sdkVersion,
+            crashReporterPluginVersion: crashReporterPluginVersion,
+            platform: platform,
+            initFailurePoint: persistedContext?["initFailurePoint"] as? String ?? "",
+            currentOperation: currentOperation ?? "",
+            operationContext: OperationTracker.shared.operationContext,
+            powerSaveMode: collector.isPowerSaveMode(),
+            isDebugBuild: isDebugBuild,
+            bootTime: collector.getBootTime(),
+            deviceUptime: collector.getDeviceUptime(),
+            timezone: collector.getTimezone(),
+            isVPNActive: collector.isVPNActive(),
+            isProxyActive: collector.isProxyActive(),
+            memoryPressure: collector.getMemoryPressure(),
+            wasNetworkRecentlyLost: NetworkReachabilityTracker.shared.wasNetworkRecentlyLost(),
+            isStartupCrash: false
         )
 
         print("📝 [INIT] Saving reconstructed crash from marker - ID: \(crashData.crashId), Fingerprint: \(crashFingerprint)")
@@ -369,7 +391,27 @@ public class CrashReporterCore {
             crashLoopCount: CrashLoopDetector.shared.getCrashCount(),
             sdk_info: nil,
             sdk_user_state: nil,
-            unity_info: nil
+            unity_info: nil,
+            isSDKRelated: false,
+            sdkConfidence: "none",
+            faultingLibrary: nil,
+            responsibleSDKComponent: "",
+            sdkVersion: OperationTracker.shared.sdkVersion,
+            crashReporterPluginVersion: OperationTracker.shared.crashReporterPluginVersion,
+            platform: OperationTracker.shared.platform,
+            initFailurePoint: OperationTracker.shared.initFailurePoint,
+            currentOperation: OperationTracker.shared.currentOperation ?? "",
+            operationContext: OperationTracker.shared.operationContext,
+            powerSaveMode: collector.isPowerSaveMode(),
+            isDebugBuild: collector.isDebugBuild(),
+            bootTime: collector.getBootTime(),
+            deviceUptime: collector.getDeviceUptime(),
+            timezone: collector.getTimezone(),
+            isVPNActive: collector.isVPNActive(),
+            isProxyActive: collector.isProxyActive(),
+            memoryPressure: collector.getMemoryPressure(),
+            wasNetworkRecentlyLost: NetworkReachabilityTracker.shared.wasNetworkRecentlyLost(),
+            isStartupCrash: true
         )
 
         storage.saveCrash(crashData)
@@ -437,7 +479,27 @@ public class CrashReporterCore {
             crashLoopCount: CrashLoopDetector.shared.getCrashCount(),
             sdk_info: nil,
             sdk_user_state: nil,
-            unity_info: nil
+            unity_info: nil,
+            isSDKRelated: false,
+            sdkConfidence: "none",
+            faultingLibrary: nil,
+            responsibleSDKComponent: "",
+            sdkVersion: OperationTracker.shared.sdkVersion,
+            crashReporterPluginVersion: OperationTracker.shared.crashReporterPluginVersion,
+            platform: OperationTracker.shared.platform,
+            initFailurePoint: OperationTracker.shared.initFailurePoint,
+            currentOperation: OperationTracker.shared.currentOperation ?? "",
+            operationContext: OperationTracker.shared.operationContext,
+            powerSaveMode: collector.isPowerSaveMode(),
+            isDebugBuild: collector.isDebugBuild(),
+            bootTime: collector.getBootTime(),
+            deviceUptime: collector.getDeviceUptime(),
+            timezone: collector.getTimezone(),
+            isVPNActive: collector.isVPNActive(),
+            isProxyActive: collector.isProxyActive(),
+            memoryPressure: collector.getMemoryPressure(),
+            wasNetworkRecentlyLost: NetworkReachabilityTracker.shared.wasNetworkRecentlyLost(),
+            isStartupCrash: false
         )
 
         storage.saveCrash(crashData)
