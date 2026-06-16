@@ -127,18 +127,11 @@ class CrashSender {
         }
 
         do {
-            let encoder = JSONEncoder()
-            encoder.outputFormatting = [.sortedKeys]
+            // New Relic Events API requires a JSON array with an eventType field. Build the
+            // FLAT event (New Relic drops nested objects) and array-wrap it.
+            let event = flattenedEvent(crashData)
 
-            // New Relic Events API requires a JSON array with an eventType field.
-            // We wrap the crash data in a dictionary, inject eventType, then array-wrap it.
-            let crashDict = try JSONSerialization.jsonObject(
-                with: encoder.encode(crashData), options: []) as? [String: Any] ?? [:]
-            var event = crashDict
-            event["eventType"] = "ZBDCrashReport"  // Required by New Relic NRQL
-            event["gameId"] = crashData.appInfo.bundleId  // Per-studio filtering
-
-            let jsonData = try JSONSerialization.data(withJSONObject: [event], options: [])
+            let jsonData = try JSONSerialization.data(withJSONObject: [event], options: [.sortedKeys])
 
             let jsonSize = Double(jsonData.count) / 1024.0
             CrashReporterLogger.info("Sending crash to New Relic (\(String(format: "%.1f", jsonSize))KB)", log: CrashReporterLogger.crashSender)
@@ -211,19 +204,117 @@ class CrashSender {
     /// host (Unity C#) signs and POSTs. Mirrors the New Relic event the native sender would build.
     func buildPayloadJson(_ crashData: CrashData) -> String? {
         do {
-            let encoder = JSONEncoder()
-            encoder.outputFormatting = [.sortedKeys]
-            let crashDict = try JSONSerialization.jsonObject(
-                with: encoder.encode(crashData), options: []) as? [String: Any] ?? [:]
-            var event = crashDict
-            event["eventType"] = "ZBDCrashReport"
-            event["gameId"] = crashData.appInfo.bundleId
-            let data = try JSONSerialization.data(withJSONObject: event, options: [])
+            let event = flattenedEvent(crashData)
+            let data = try JSONSerialization.data(withJSONObject: event, options: [.sortedKeys])
             return String(data: data, encoding: .utf8)
         } catch {
             CrashReporterLogger.error("buildPayloadJson failed: \(error.localizedDescription)", log: CrashReporterLogger.crashSender)
             return nil
         }
+    }
+
+    /// Build the New Relic event as a FLAT top-level dictionary. New Relic silently drops nested
+    /// JSON objects, so the device/app/state structs must be hoisted to top-level primitives
+    /// (mirrors the Android EnhancedCrashSender flattening + field names). Nested containers and
+    /// arrays New Relic can't store (threads, breadcrumbs, registers, binary images, etc.) are
+    /// intentionally omitted.
+    func flattenedEvent(_ crashData: CrashData) -> [String: Any] {
+        var e: [String: Any] = [:]
+
+        // Required by New Relic NRQL + per-studio filtering
+        e["eventType"] = "ZBDCrashReport"
+        e["gameId"] = crashData.appInfo.bundleId
+
+        // Crash identity
+        e["crashId"] = crashData.crashId
+        e["timestamp"] = crashData.timestamp
+        e["exceptionType"] = crashData.exceptionType
+        e["exceptionMessage"] = crashData.exceptionMessage
+        e["stackTrace"] = crashData.stackTrace
+        e["threadName"] = crashData.threadName
+        e["environment"] = crashData.environment
+        e["platform"] = crashData.platform
+        e["severity"] = crashData.severity
+        e["issueTitle"] = crashData.issueTitle
+        e["crashFingerprint"] = crashData.crashFingerprint ?? ""
+
+        // Classification
+        e["isANR"] = crashData.isANR
+        e["isNativeCrash"] = crashData.isNativeCrash
+        e["anrDurationMs"] = crashData.anrDurationMs ?? 0
+        e["nativeSignal"] = crashData.nativeSignal ?? ""
+        e["nativeFaultAddress"] = crashData.nativeFaultAddress ?? ""
+        e["isInCrashLoop"] = crashData.isInCrashLoop
+        e["crashLoopCount"] = crashData.crashLoopCount
+        e["isStartupCrash"] = crashData.isStartupCrash
+
+        // SDK attribution (SLO)
+        e["isSDKRelated"] = crashData.isSDKRelated
+        e["sdkConfidence"] = crashData.sdkConfidence ?? "none"
+        e["faultingLibrary"] = crashData.faultingLibrary ?? ""
+        e["responsibleSDKComponent"] = crashData.responsibleSDKComponent
+        e["sdkVersion"] = crashData.sdkVersion
+        e["crashReporterPluginVersion"] = crashData.crashReporterPluginVersion
+        e["initFailurePoint"] = crashData.initFailurePoint
+        e["currentOperation"] = crashData.currentOperation
+
+        // Device/runtime flags
+        e["powerSaveMode"] = crashData.powerSaveMode
+        e["isDebugBuild"] = crashData.isDebugBuild
+        e["bootTime"] = crashData.bootTime
+        e["deviceUptime"] = crashData.deviceUptime
+        e["timezone"] = crashData.timezone
+        e["isVPNActive"] = crashData.isVPNActive
+        e["isProxyActive"] = crashData.isProxyActive
+        e["memoryPressure"] = crashData.memoryPressure
+        e["wasNetworkRecentlyLost"] = crashData.wasNetworkRecentlyLost
+
+        // Flattened: DeviceInfo
+        e["deviceModel"] = crashData.deviceInfo.model
+        e["deviceManufacturer"] = crashData.deviceInfo.manufacturer
+        e["iosVersion"] = crashData.deviceInfo.iosVersion
+        e["deviceApiLevel"] = crashData.deviceInfo.apiLevel
+        e["deviceBrand"] = crashData.deviceInfo.brand
+        e["screenWidth"] = crashData.deviceInfo.screenWidth
+        e["screenHeight"] = crashData.deviceInfo.screenHeight
+
+        // Flattened: AppInfo
+        e["appVersion"] = crashData.appInfo.versionName
+        e["appPackageName"] = crashData.appInfo.bundleId
+        e["appVersionCode"] = crashData.appInfo.versionCode
+
+        // Flattened: DeviceState
+        e["batteryLevel"] = crashData.deviceState.batteryLevel
+        e["isCharging"] = crashData.deviceState.isCharging
+        e["availableMemoryMB"] = crashData.deviceState.availableMemoryMB
+        e["totalMemoryMB"] = crashData.deviceState.totalMemoryMB
+        e["lowMemory"] = crashData.deviceState.lowMemory
+        e["orientation"] = crashData.deviceState.orientation
+        e["thermalState"] = crashData.deviceState.thermalState
+
+        // Flattened: NetworkInfo
+        e["networkConnected"] = crashData.networkInfo.isConnected
+        e["networkType"] = crashData.networkInfo.connectionType
+
+        // Flattened: MemoryInfo
+        e["heapSizeKB"] = crashData.memoryInfo.heapSizeKB
+        e["heapFreeKB"] = crashData.memoryInfo.heapFreeKB
+
+        // Flattened: CpuInfo
+        e["cpuCores"] = crashData.cpuInfo.coreCount
+        e["cpuArchitecture"] = crashData.cpuInfo.architecture
+
+        // Flattened: ProcessInfo
+        e["processName"] = crashData.processInfo.processName
+        e["processForeground"] = crashData.processInfo.foreground
+
+        // Operation context (best-effort, from customData / operationContext)
+        let opCtx = crashData.customData.merging(crashData.operationContext) { current, _ in current }
+        e["lastSuccessfulOperation"] = opCtx["lastSuccessfulOperation"] ?? "none"
+        e["lastFailedOperation"] = opCtx["lastFailedOperation"] ?? "none"
+        e["lastOperationError"] = opCtx["lastOperationError"] ?? "none"
+
+        return e
     }
 
     // MARK: - Send All Pending Crashes (With Queue Management)

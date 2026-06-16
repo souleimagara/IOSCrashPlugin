@@ -276,20 +276,25 @@ class DeviceInfoCollector {
     }
     
     private func getArchitecture() -> String {
-        var systemInfo = utsname()
-        uname(&systemInfo)
-        let machineMirror = Mirror(reflecting: systemInfo.machine)
-        let identifier = machineMirror.children.reduce("") { identifier, element in
-            guard let value = element.value as? Int8, value != 0 else { return identifier }
-            return identifier + String(UnicodeScalar(UInt8(value)))
+        // NOTE: utsname.machine is the DEVICE MODEL ("iPhone12,1"), not the CPU arch.
+        // Query the real CPU type via sysctl instead.
+        var cputype: cpu_type_t = 0
+        var size = MemoryLayout<cpu_type_t>.size
+        guard sysctlbyname("hw.cputype", &cputype, &size, nil, 0) == 0 else {
+            return "unknown"
         }
-        
-        if identifier.contains("arm64") {
+        if cputype == CPU_TYPE_X86_64 { return "x86_64" }
+        if cputype == CPU_TYPE_ARM64 {
+            var subtype: cpu_subtype_t = 0
+            var subSize = MemoryLayout<cpu_subtype_t>.size
+            if sysctlbyname("hw.cpusubtype", &subtype, &subSize, nil, 0) == 0,
+               subtype == 2 {  // CPU_SUBTYPE_ARM64E
+                return "arm64e"
+            }
             return "arm64"
-        } else if identifier.contains("x86_64") {
-            return "x86_64"
         }
-        return identifier
+        if cputype == CPU_TYPE_ARM { return "arm" }
+        return "unknown"
     }
     
     // MARK: - Android Parity Collection Methods
